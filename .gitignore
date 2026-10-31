@@ -49,3 +49,6 @@ docs/
 
 # Claude Code notes kept by tools, not part of the app
 CLAUDE.md
+
+# Firebase Hosting deploy cache
+.firebase/
