@@ -28,8 +28,9 @@ sits under the flower at the top, the oldest down by the pot. The interface
 is in Vietnamese.
 
 It runs on Android and in the browser from one Flutter codebase, with
-Firebase as the whole backend. There is no server code: Google sign-in says
-who you are, and the security rules decide whether you're one of the two.
+Firebase as the whole backend. Google sign-in says who you are, the security
+rules decide whether you're one of the two, and the only server code is one
+Cloud Function that sends notifications.
 
 ```mermaid
 flowchart LR
@@ -39,6 +40,8 @@ flowchart LR
   hosting[Firebase Hosting] -- serves --> app
   rules{{"Security rules<br/>members list"}} -.-> fs
   rules -.-> st
+  fs -- new activity --> fn[Cloud Function]
+  fn -- FCM --> app
 ```
 
 The live site, [ustogether.space](https://ustogether.space), and the APK
@@ -57,6 +60,10 @@ told their account isn't in the book. To use it yourselves, run your own copy.
   day itself a heart with confetti.
 - **Xem từ đầu**: replays the journal from the pot up, regrowing the stem
   branch by branch and ending on the day count.
+- **Notifications**: when one of you adds photos, a moment or a reflection,
+  the other one hears about it, once per batch.
+- **Share from the gallery** (Android): "Share → us-together" opens the
+  add-photos sheet with those photos already in.
 - **Trash**: deleted things wait 30 days and either of you can restore them.
 - **Photos**: capture dates come from EXIF, files are compressed on the
   device (WebP, or JPEG where the browser can't), and you can zoom and save
@@ -84,11 +91,14 @@ the [Firebase CLI](https://firebase.google.com/docs/cli) and the
    flutterfire configure
    ```
 
-3. **Deploy the security rules.** When the CLI asks to let Storage rules read
-   Firestore, accept: membership is checked there.
+3. **Deploy the security rules and the notification function.** When the CLI
+   asks to let Storage rules read Firestore, accept: membership is checked
+   there. If your Firestore isn't in `asia-southeast1`, change `region` in
+   [`functions/index.js`](functions/index.js) to match first.
 
    ```sh
-   firebase deploy --only firestore:rules,storage
+   (cd functions && npm install)
+   firebase deploy --only firestore:rules,storage,functions
    ```
 
 4. **Let the web app download photo bytes.** Saving photos needs this.
@@ -109,7 +119,12 @@ the [Firebase CLI](https://firebase.google.com/docs/cli) and the
    > Someone with several Google accounts gets one `members` document per
    > email, all pointing at the same person.
 
-6. **Run it**, then set the day you got together from the home screen's
+6. **For notifications on the web**, generate a key pair under Project
+   settings → Cloud Messaging → Web Push certificates, and put its public
+   key in `_webPushKey` in [`lib/data/push.dart`](lib/data/push.dart).
+   Android needs nothing more.
+
+7. **Run it**, then set the day you got together from the home screen's
    header.
 
    ```sh
@@ -132,6 +147,11 @@ firebase deploy --only hosting
 
 `firebase.json` serves the app as a single page and keeps browsers from
 holding on to a stale `main.dart.js` after a deploy.
+
+> [!NOTE]
+> On iPhone, web notifications only work once the site is added to the home
+> screen (iOS 16.4 or later) and turned on from "Bật thông báo" in the
+> profile menu.
 
 ### Android
 
@@ -172,6 +192,7 @@ lib/
   trash/          the 30-day trash
   theme/          colours, type, motion tokens
 tool/             icon and screenshot generators
+functions/        the Cloud Function that sends notifications
 ```
 
 | Task | Command |

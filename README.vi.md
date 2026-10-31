@@ -28,9 +28,9 @@ ngay dưới bông hoa trên đỉnh, cũ nhất nằm dưới gần chậu. Gia
 tiếng Việt.
 
 App chạy trên Android và trình duyệt từ cùng một bộ code Flutter, toàn bộ
-phía máy chủ là Firebase. Không có code máy chủ nào: đăng nhập Google cho
-biết bạn là ai, còn rule bảo mật quyết định bạn có phải một trong hai người
-hay không.
+phía máy chủ là Firebase. Đăng nhập Google cho biết bạn là ai, rule bảo mật
+quyết định bạn có phải một trong hai người hay không, và code máy chủ duy
+nhất là một Cloud Function gửi thông báo.
 
 ```mermaid
 flowchart LR
@@ -40,6 +40,8 @@ flowchart LR
   hosting[Firebase Hosting] -- phục vụ --> app
   rules{{"Rule bảo mật<br/>danh sách members"}} -.-> fs
   rules -.-> st
+  fs -- activity mới --> fn[Cloud Function]
+  fn -- FCM --> app
 ```
 
 Bản web [ustogether.space](https://ustogether.space) và APK chỉ mở được cho
@@ -58,6 +60,10 @@ trong sổ. Muốn dùng cho hai bạn thì hãy tự dựng một bản riêng.
   ngày đó thì có trái tim cùng pháo giấy.
 - **Xem từ đầu**: xem lại cả cuốn sổ từ chậu lên, thân cây mọc lại từng nhánh
   và kết thúc bằng con số ngày bên nhau.
+- **Thông báo**: khi một người thêm ảnh, kỷ niệm hay cảm nghĩ, người kia
+  nhận được thông báo, mỗi lượt thêm một lần.
+- **Chia sẻ từ thư viện ảnh** (Android): "Chia sẻ → us-together" mở sheet
+  thêm ảnh với sẵn những ảnh đó.
 - **Thùng giấy**: thứ bị xoá nằm chờ 30 ngày, ai trong hai người cũng khôi
   phục được.
 - **Ảnh**: ngày chụp lấy từ EXIF, nén ngay trên máy (WebP, hoặc JPEG khi
@@ -85,11 +91,14 @@ Cần có [Flutter](https://docs.flutter.dev/get-started/install) (bản stable)
    flutterfire configure
    ```
 
-3. **Deploy rule bảo mật.** Khi CLI hỏi có cho rule của Storage đọc Firestore
-   không, chọn đồng ý: thành viên được kiểm tra ở đó.
+3. **Deploy rule bảo mật và function gửi thông báo.** Khi CLI hỏi có cho rule
+   của Storage đọc Firestore không, chọn đồng ý: thành viên được kiểm tra ở
+   đó. Nếu Firestore của bạn không ở `asia-southeast1`, sửa `region` trong
+   [`functions/index.js`](functions/index.js) cho khớp trước.
 
    ```sh
-   firebase deploy --only firestore:rules,storage
+   (cd functions && npm install)
+   firebase deploy --only firestore:rules,storage,functions
    ```
 
 4. **Cho bản web tải dữ liệu ảnh.** Cần bước này để lưu ảnh về máy.
@@ -110,7 +119,12 @@ Cần có [Flutter](https://docs.flutter.dev/get-started/install) (bản stable)
    > Ai dùng nhiều tài khoản Google thì mỗi email thêm một tài liệu `members`,
    > tất cả trỏ về cùng một người.
 
-6. **Chạy app**, rồi đặt ngày bắt đầu yêu bằng dòng chữ ở phần đầu trang chủ.
+6. **Muốn có thông báo trên web**, tạo một cặp khoá ở Project settings →
+   Cloud Messaging → Web Push certificates, rồi dán khoá công khai vào
+   `_webPushKey` trong [`lib/data/push.dart`](lib/data/push.dart). Android
+   không cần thêm gì.
+
+7. **Chạy app**, rồi đặt ngày bắt đầu yêu bằng dòng chữ ở phần đầu trang chủ.
 
    ```sh
    flutter run -d chrome   # hoặc một máy Android
@@ -132,6 +146,10 @@ firebase deploy --only hosting
 
 `firebase.json` phục vụ app dạng một trang và không để trình duyệt giữ bản
 `main.dart.js` cũ sau mỗi lần deploy.
+
+> [!NOTE]
+> Trên iPhone, thông báo web chỉ chạy khi đã thêm trang vào màn hình chính
+> (iOS 16.4 trở lên) và bật ở mục "Bật thông báo" trong menu ảnh đại diện.
 
 ### Android
 
@@ -172,6 +190,7 @@ lib/
   trash/          thùng giấy 30 ngày
   theme/          màu, chữ, chuyển động
 tool/             tạo icon và ảnh chụp màn hình
+functions/        Cloud Function gửi thông báo
 ```
 
 | Việc | Lệnh |
