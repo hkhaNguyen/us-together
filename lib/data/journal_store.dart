@@ -119,6 +119,37 @@ class JournalStore {
     await batch.commit();
   }
 
+  /// Saves an edited moment. [keep] are its stored photos still in it, in
+  /// order, [added] the new ones after them; [cover] indexes the two together.
+  /// Stored photos left out go back on the stem, nothing is deleted.
+  Future<void> updateMoment(
+    Moment moment, {
+    required List<String> keep,
+    required List<PickedPhoto> added,
+    required int cover,
+    required DateTime date,
+    required String title,
+    required String body,
+    required String? anniversaryId,
+    required String by,
+    ValueChanged<int>? onProgress,
+  }) async {
+    final batch = _db.batch();
+    final ids = [...keep, ...await _uploadAll(added, batch, by: by, momentId: moment.id, onProgress: onProgress)];
+    for (final id in moment.photoIds.where((id) => !keep.contains(id))) {
+      batch.update(_photo(id), {'momentId': null});
+    }
+    batch.update(_moment(moment.id), {
+      'date': Timestamp.fromDate(date),
+      'title': title,
+      'body': body,
+      'photoIds': ids,
+      'coverPhotoId': ids.isEmpty ? null : ids[cover],
+      'anniversaryId': anniversaryId,
+    });
+    await batch.commit();
+  }
+
   DocumentReference<Map<String, dynamic>> _photo(String id) => _db.collection('photos').doc(id);
   DocumentReference<Map<String, dynamic>> _moment(String id) => _db.collection('moments').doc(id);
 

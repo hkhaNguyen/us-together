@@ -3,35 +3,44 @@ import 'package:flutter/material.dart';
 
 import '../data/journal_store.dart';
 import '../data/models.dart';
+import '../moment/trash_moment.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import 'photo_pipeline.dart';
 import 'sheet_frame.dart';
 
-/// 04 · Thêm kỷ niệm (a moment): photos, date, anniversary, title and the story.
+/// 04 · Thêm kỷ niệm (a moment): photos, date, anniversary, title and the
+/// story. Given [editing], it's 09 · Sửa kỷ niệm instead, filled in.
 class AddMomentSheet extends StatefulWidget {
   const AddMomentSheet({
     super.key,
     required this.store,
     required this.journal,
     required this.me,
+    this.editing,
   });
 
   final JournalStore store;
   final Journal journal;
   final String me;
+  final Moment? editing;
 
   @override
   State<AddMomentSheet> createState() => _AddMomentSheetState();
 }
 
 class _AddMomentSheetState extends State<AddMomentSheet> {
+  /// Photos already in the moment being edited (cover first), then newly
+  /// picked ones; the strip and [_cover] count across both.
+  late final _stored = [if (widget.editing case final m?) ...widget.journal.photosOf(m)];
   final _photos = <PickedPhoto>[];
-  final _title = TextEditingController();
-  final _body = TextEditingController();
+  late final _title = TextEditingController(text: widget.editing?.title);
+  late final _body = TextEditingController(text: widget.editing?.body);
   var _cover = 0;
-  var _date = DateUtils.dateOnly(DateTime.now());
+  late var _date = DateUtils.dateOnly(widget.editing?.date ?? DateTime.now());
   String? _anniversaryId;
+
+  int get _count => _stored.length + _photos.length;
 
   /// Until they pick by hand, the date follows the first photo's EXIF and
   /// the anniversary follows the date.
@@ -46,7 +55,14 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
   void initState() {
     super.initState();
     _title.addListener(() => setState(() {}));
-    _anniversaryId = widget.journal.anniversaryOn(_date)?.id;
+    if (widget.editing case final m?) {
+      // What they chose before stands; new photos don't move the date.
+      _dateTouched = true;
+      _anniversaryId = m.anniversaryId;
+      _anniversaryTouched = m.anniversaryId != null;
+    } else {
+      _anniversaryId = widget.journal.anniversaryOn(_date)?.id;
+    }
   }
 
   @override
@@ -91,10 +107,21 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
     }
   }
 
+  /// A stored photo taken out goes back on the stem when saved.
   void _remove(int i) => setState(() {
-    _photos.removeAt(i);
+    if (i < _stored.length) {
+      _stored.removeAt(i);
+    } else {
+      _photos.removeAt(i - _stored.length);
+    }
     if (_cover >= i && _cover > 0) _cover--;
   });
+
+  Future<void> _trash() async {
+    if (await confirmTrashMoment(context, widget.store, widget.editing!, me: widget.me) && mounted) {
+      Navigator.pop(context);
+    }
+  }
 
   Future<void> _save() async {
     setState(() {
@@ -102,16 +129,32 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
       _error = null;
     });
     try {
-      await widget.store.addMoment(
-        photos: _photos,
-        cover: _cover,
-        date: _date,
-        title: _title.text.trim(),
-        body: _body.text.trim(),
-        anniversaryId: _anniversaryId,
-        by: widget.me,
-        onProgress: (n) => setState(() => _uploaded = n),
-      );
+      final editing = widget.editing;
+      if (editing != null) {
+        await widget.store.updateMoment(
+          editing,
+          keep: [for (final p in _stored) p.id],
+          added: _photos,
+          cover: _cover,
+          date: _date,
+          title: _title.text.trim(),
+          body: _body.text.trim(),
+          anniversaryId: _anniversaryId,
+          by: widget.me,
+          onProgress: (n) => setState(() => _uploaded = n),
+        );
+      } else {
+        await widget.store.addMoment(
+          photos: _photos,
+          cover: _cover,
+          date: _date,
+          title: _title.text.trim(),
+          body: _body.text.trim(),
+          anniversaryId: _anniversaryId,
+          by: widget.me,
+          onProgress: (n) => setState(() => _uploaded = n),
+        );
+      }
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() {
@@ -132,29 +175,30 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
         : 'đang tải ảnh ${uploaded + 1}/${_photos.length}…';
 
     return SheetFrame(
-      title: 'Thêm kỷ niệm',
+      title: widget.editing == null ? 'Thêm kỷ niệm' : 'Sửa kỷ niệm',
       action: 'Lưu',
       onAction: _title.text.trim().isEmpty || _picking ? null : _save,
       status: status,
       error: _error,
       children: [
         FieldLabel(
-          'ẢNH · ${_photos.length} ĐÃ CHỌN${_photos.length > 1 ? ' — chạm ảnh để chọn bìa' : ''}',
+          'ẢNH · $_count ĐÃ CHỌN${_count > 1 ? ' — chạm ảnh để chọn bìa' : ''}',
         ),
         SizedBox(
           height: 84,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: _photos.length + 1,
+            itemCount: _count + 1,
             separatorBuilder: (_, _) => const SizedBox(width: Space.s2),
-            itemBuilder: (context, i) => i == 0
-                ? AddPhotoTile(busy: _picking, onTap: busy ? null : _pick)
-                : PickedPhotoTile(
-                    photo: _photos[i - 1],
-                    isCover: _cover == i - 1,
-                    onTap: busy ? null : () => setState(() => _cover = i - 1),
-                    onRemove: busy ? null : () => _remove(i - 1),
-                  ),
+            itemBuilder: (context, i) {
+              if (i == 0) return AddPhotoTile(busy: _picking, onTap: busy ? null : _pick);
+              final j = i - 1;
+              final onTap = busy ? null : () => setState(() => _cover = j);
+              final onRemove = busy ? null : () => _remove(j);
+              return j < _stored.length
+                  ? PhotoTile.stored(_stored[j], isCover: _cover == j, onTap: onTap, onRemove: onRemove)
+                  : PhotoTile.picked(_photos[j - _stored.length], isCover: _cover == j, onTap: onTap, onRemove: onRemove);
+            },
           ),
         ),
         const SizedBox(height: Space.s5),
@@ -250,6 +294,14 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
             ),
           ),
         ),
+        if (widget.editing != null) ...[
+          const SizedBox(height: Space.s5),
+          TextButton(
+            onPressed: busy ? null : _trash,
+            style: TextButton.styleFrom(foregroundColor: Sakura.c7),
+            child: const Text('Xoá kỷ niệm này'),
+          ),
+        ],
       ],
     );
   }

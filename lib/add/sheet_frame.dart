@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../data/vi_format.dart';
 import '../theme/app_theme.dart';
+import '../data/models.dart';
 import '../theme/tokens.dart';
+import '../widgets/paper_bits.dart';
 import 'photo_pipeline.dart';
 
 /// Opens [sheet] as the paper bottom sheet from the add designs.
@@ -134,11 +136,17 @@ class AddPhotoTile extends StatelessWidget {
   }
 }
 
-/// A picked photo with ✕ to drop it; on moments, tapping makes it the cover.
-class PickedPhotoTile extends StatelessWidget {
-  const PickedPhotoTile({super.key, required this.photo, required this.onRemove, this.isCover = false, this.onTap, this.size = 84});
+/// A photo in an add/edit sheet with ✕ to drop it; on moments, tapping makes
+/// it the cover. Either just picked (bytes on the device) or already stored.
+class PhotoTile extends StatelessWidget {
+  PhotoTile.picked(PickedPhoto photo, {super.key, required this.onRemove, this.isCover = false, this.onTap, this.size = 84})
+      // Decoded small: the originals can be 12+ megapixels.
+      : image = Image.memory(photo.bytes, fit: BoxFit.cover, cacheWidth: (size * 3).round());
 
-  final PickedPhoto photo;
+  PhotoTile.stored(Photo photo, {super.key, required this.onRemove, this.isCover = false, this.onTap, this.size = 84})
+      : image = PhotoBox(url: photo.thumbUrl);
+
+  final Widget image;
   final bool isCover;
   final VoidCallback? onTap;
   final VoidCallback? onRemove;
@@ -157,11 +165,7 @@ class PickedPhotoTile extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                // Decoded small: the originals can be 12+ megapixels.
-                child: Image.memory(photo.bytes, fit: BoxFit.cover, cacheWidth: (size * 3).round()),
-              ),
+              ClipRRect(borderRadius: BorderRadius.circular(10), child: image),
               if (isCover)
                 Positioned(
                   left: 6,

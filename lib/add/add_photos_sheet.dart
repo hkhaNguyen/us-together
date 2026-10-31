@@ -120,9 +120,9 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
                   size: size,
                 ),
                 for (final p in _photos)
-                  PickedPhotoTile(
+                  PhotoTile.picked(
+                    p,
                     key: ObjectKey(p),
-                    photo: p,
                     size: size,
                     onRemove: busy
                         ? null

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../add/add_moment_sheet.dart';
+import '../add/sheet_frame.dart';
 import '../data/journal_store.dart';
 import '../data/models.dart';
 import '../data/vi_format.dart';
@@ -27,10 +29,9 @@ class MomentPage extends StatelessWidget {
       builder: (context, s, _) {
         final moment = s?.journal.moment(momentId);
         if (s == null || moment == null) {
-          return Scaffold(
-            appBar: AppBar(backgroundColor: Paper.c3),
-            body: Center(child: Text('Kỷ niệm này không còn trong sổ nữa.', style: AppText.body)),
-          );
+          // Deleted, here or on the other phone: nothing left to show.
+          if (s != null) WidgetsBinding.instance.addPostFrameCallback((_) => Navigator.maybePop(context));
+          return const Scaffold();
         }
         final journal = s.journal;
         final photos = journal.photosOf(moment);
@@ -64,13 +65,20 @@ class MomentPage extends StatelessWidget {
                                 style: _roundButton,
                                 icon: const Icon(Icons.arrow_back, size: 18, color: Paper.c8),
                               ),
-                              // Only whoever made the moment can delete it.
+                              // Only whoever made the moment can edit (or delete) it.
                               if (moment.addedBy == s.me)
-                                IconButton(
-                                  tooltip: 'Xoá kỷ niệm',
-                                  onPressed: () => _trashMoment(context, moment, photos.length, s.me),
-                                  style: _roundButton,
-                                  icon: const Icon(Icons.delete_outline, size: 18, color: Paper.c8),
+                                OutlinedButton(
+                                  onPressed: () => showPaperSheet(
+                                    context,
+                                    AddMomentSheet(store: store, journal: journal, me: s.me, editing: moment),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: Paper.c1,
+                                    foregroundColor: Paper.c8,
+                                    side: const BorderSide(color: Paper.c5),
+                                    minimumSize: const Size(0, 44),
+                                  ),
+                                  child: const Text('sửa'),
                                 ),
                             ],
                           ),
@@ -128,38 +136,6 @@ class MomentPage extends StatelessWidget {
     side: const BorderSide(color: Paper.c5),
     fixedSize: const Size.square(44),
   );
-
-  /// The design's three-way question: keep the photos on the stem, trash
-  /// them with it, or never mind.
-  Future<void> _trashMoment(BuildContext context, Moment moment, int photoCount, String me) async {
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Paper.c1,
-        title: Text('Xoá kỷ niệm này?', style: AppText.title.copyWith(fontSize: 18)),
-        content: Text(
-          'Kỷ niệm sẽ vào thùng giấy ${Trashed.keepDays} ngày, hai đứa đều khôi phục được.'
-          '${photoCount > 0 ? ' Còn $photoCount tấm ảnh trong đó thì sao?' : ''}',
-          style: AppText.body.copyWith(fontSize: 14),
-        ),
-        actionsOverflowDirection: VerticalDirection.down,
-        actionsOverflowButtonSpacing: Space.s2,
-        actions: [
-          if (photoCount > 0)
-            OutlinedButton(onPressed: () => Navigator.pop(context, 'keep'), child: const Text('Giữ ảnh lại trên thân hoa')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, 'all'),
-            style: FilledButton.styleFrom(backgroundColor: Sakura.c7),
-            child: Text(photoCount > 0 ? 'Xoá cả kỷ niệm lẫn $photoCount ảnh' : 'Xoá'),
-          ),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Thôi, giữ lại')),
-        ],
-      ),
-    );
-    if (choice == null) return;
-    await store.trashMoment(moment, withPhotos: choice == 'all', by: me);
-    if (context.mounted) Navigator.pop(context);
-  }
 
   Future<void> _photoActions(BuildContext context, Moment moment, Photo photo) async {
     final choice = await showModalBottomSheet<String>(
