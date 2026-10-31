@@ -20,6 +20,18 @@ The live site and APK only open for the two people in this journal. Anyone
 else who signs in is told their account isn't in the book. To use it
 yourselves, run your own copy (see [Run your own](#run-your-own)).
 
+<p align="center">
+  <img src=".github/screenshots/home.png" width="200" alt="Home: the stem with a photo stack and a moment">
+  <img src=".github/screenshots/moment.png" width="200" alt="A moment: photos, story and reflections">
+  <img src=".github/screenshots/photo.png" width="200" alt="Photo viewer">
+  <img src=".github/screenshots/anniversaries.png" width="200" alt="Anniversaries">
+</p>
+<p align="center">
+  <img src=".github/screenshots/home-desktop.png" width="816" alt="Home on a desktop browser">
+</p>
+
+The screenshots use made-up data and painted stand-in photos.
+
 ## Features
 
 - **The stem** – photos and moments alternate left and right along one
@@ -153,3 +165,17 @@ it, regenerate them:
 ```sh
 flutter test tool/make_icons_test.dart
 ```
+
+### Screenshots
+
+The ones above come from the real app running on demo data
+([`tool/screenshots/demo_main.dart`](tool/screenshots/demo_main.dart)),
+photographed by headless Chrome. To retake them into `.github/screenshots/`:
+
+```sh
+node tool/screenshots/shoot.mjs
+```
+
+## License
+
+[MIT](LICENSE)

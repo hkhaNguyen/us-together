@@ -20,6 +20,18 @@ Bản trên web và APK chỉ mở được cho hai người trong cuốn sổ n
 đăng nhập sẽ thấy báo tài khoản chưa có trong sổ. Muốn dùng cho hai bạn thì
 hãy tự dựng một bản riêng (xem [Tự dựng bản riêng](#tự-dựng-bản-riêng)).
 
+<p align="center">
+  <img src=".github/screenshots/home.png" width="200" alt="Trang chủ: thân cây với một xấp ảnh và một kỷ niệm">
+  <img src=".github/screenshots/moment.png" width="200" alt="Một kỷ niệm: ảnh, câu chuyện và cảm nghĩ">
+  <img src=".github/screenshots/photo.png" width="200" alt="Xem ảnh">
+  <img src=".github/screenshots/anniversaries.png" width="200" alt="Ngày kỷ niệm">
+</p>
+<p align="center">
+  <img src=".github/screenshots/home-desktop.png" width="816" alt="Trang chủ trên trình duyệt máy tính">
+</p>
+
+Ảnh chụp màn hình dùng dữ liệu mẫu và ảnh minh hoạ tự vẽ.
+
 ## Tính năng
 
 - **Thân cây**: ảnh và kỷ niệm mọc so le trái phải dọc một thân, có mốc
@@ -151,3 +163,17 @@ tạo lại icon:
 ```sh
 flutter test tool/make_icons_test.dart
 ```
+
+### Ảnh chụp màn hình
+
+Các ảnh ở trên được chụp từ chính app chạy với dữ liệu mẫu
+([`tool/screenshots/demo_main.dart`](tool/screenshots/demo_main.dart)),
+bằng Chrome chạy ngầm. Chụp lại vào `.github/screenshots/`:
+
+```sh
+node tool/screenshots/shoot.mjs
+```
+
+## Giấy phép
+
+[MIT](LICENSE)
