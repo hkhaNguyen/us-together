@@ -26,7 +26,7 @@ Journal mockJournal() {
 
   void loose(String id, DateTime date, String by, int count, {String? title}) {
     for (var i = 1; i <= count; i++) {
-      photos.add(Photo(id: '$id-$i', takenAt: date.add(Duration(minutes: i)), addedBy: by, title: title));
+      photos.add(Photo(id: '$id-$i', takenAt: date.add(Duration(minutes: i)), addedBy: by, title: title, stackId: id));
     }
   }
 

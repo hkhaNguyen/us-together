@@ -7,8 +7,8 @@ import '../theme/tokens.dart';
 import 'photo_pipeline.dart';
 import 'sheet_frame.dart';
 
-/// 05 · Thêm ảnh lẻ: each photo gets its own date (from EXIF) and a free
-/// title, then they're pinned on the stem.
+/// 05 · Thêm ảnh lẻ: one go = one stack on the stem, with one date (from
+/// the first photo's EXIF) and one title shared by every photo in it.
 class AddPhotosSheet extends StatefulWidget {
   const AddPhotosSheet({super.key, required this.store, required this.me});
 
@@ -21,6 +21,11 @@ class AddPhotosSheet extends StatefulWidget {
 
 class _AddPhotosSheetState extends State<AddPhotosSheet> {
   final _photos = <PickedPhoto>[];
+  final _title = TextEditingController();
+  var _date = DateTime.now();
+
+  /// Until they change it by hand, the date follows the first photo.
+  var _dateTouched = false;
   var _picking = false;
   int? _uploaded;
   String? _error;
@@ -31,6 +36,12 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
     // Browsers only open a file dialog from a real tap, so on the web the
     // picker waits for the button.
     if (!kIsWeb) WidgetsBinding.instance.addPostFrameCallback((_) => _pick(closeIfNone: true));
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    super.dispose();
   }
 
   Future<void> _pick({bool closeIfNone = false}) async {
@@ -47,7 +58,10 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
         Navigator.pop(context);
         return;
       }
-      setState(() => _photos.addAll(picked));
+      setState(() {
+        _photos.addAll(picked);
+        if (!_dateTouched && _photos.isNotEmpty) _date = _photos.first.takenAt;
+      });
     } catch (e) {
       if (mounted) setState(() => _error = 'chưa mở được ảnh ($e)');
     } finally {
@@ -61,7 +75,13 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
       _error = null;
     });
     try {
-      await widget.store.addPhotos(_photos, by: widget.me, onProgress: (n) => setState(() => _uploaded = n));
+      await widget.store.addPhotoStack(
+        _photos,
+        date: _date,
+        title: _title.text,
+        by: widget.me,
+        onProgress: (n) => setState(() => _uploaded = n),
+      );
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() {
@@ -74,94 +94,57 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
   @override
   Widget build(BuildContext context) {
     final uploaded = _uploaded;
+    final busy = uploaded != null;
     return SheetFrame(
       title: 'Thêm ảnh',
       action: 'Dán lên',
       onAction: _photos.isEmpty || _picking ? null : _save,
-      status: uploaded == null ? null : 'đang dán ${uploaded + 1 > _photos.length ? _photos.length : uploaded + 1}/${_photos.length}…',
+      status: busy ? 'đang dán ${uploaded < _photos.length ? uploaded + 1 : _photos.length}/${_photos.length}…' : null,
       error: _error,
       children: [
-        for (final p in _photos)
-          _PhotoRow(
-            key: ObjectKey(p),
-            photo: p,
-            enabled: uploaded == null,
-            onChanged: () => setState(() {}),
-            onRemove: () => setState(() => _photos.remove(p)),
-          ),
-        const SizedBox(height: Space.s2),
-        OutlinedButton.icon(
-          onPressed: _picking || uploaded != null ? null : _pick,
-          icon: const Icon(Icons.add, size: 18),
-          label: Text(_picking ? 'đang mở thư viện…' : (_photos.isEmpty ? 'chọn ảnh' : 'chọn thêm ảnh')),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Paper.c8,
-            side: const BorderSide(color: Paper.c6, style: BorderStyle.solid),
-            minimumSize: const Size.fromHeight(48),
+        LayoutBuilder(builder: (context, box) {
+          const gap = Space.s2;
+          final size = (box.maxWidth - 3 * gap) / 4;
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              AddPhotoTile(busy: _picking, onTap: busy ? null : _pick, size: size),
+              for (final p in _photos)
+                PickedPhotoTile(
+                  key: ObjectKey(p),
+                  photo: p,
+                  size: size,
+                  onRemove: busy ? null : () => setState(() => _photos.remove(p)),
+                ),
+            ],
+          );
+        }),
+        const SizedBox(height: Space.s4),
+        const FieldLabel('ngày chụp'),
+        IgnorePointer(
+          ignoring: busy,
+          child: DateField(
+            date: _date,
+            label: 'ngày chụp',
+            onChanged: (d) => setState(() {
+              _date = d;
+              _dateTouched = true;
+            }),
           ),
         ),
+        const SizedBox(height: Space.s4),
+        const FieldLabel('tiêu đề'),
+        TextField(
+          controller: _title,
+          enabled: !busy,
+          minLines: 1,
+          maxLines: 4,
+          textCapitalization: TextCapitalization.sentences,
+          style: AppText.script.copyWith(fontSize: 18),
+          decoration: const InputDecoration(hintText: 'tiêu đề cho xấp ảnh này — viết gì cũng được…'),
+        ),
       ],
-    );
-  }
-}
-
-class _PhotoRow extends StatelessWidget {
-  const _PhotoRow({super.key, required this.photo, required this.enabled, required this.onChanged, required this.onRemove});
-
-  final PickedPhoto photo;
-  final bool enabled;
-  final VoidCallback onChanged;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Space.s4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            // Decoded small: the originals can be 12+ megapixels.
-            child: Image.memory(photo.bytes, width: 72, height: 72, fit: BoxFit.cover, cacheWidth: 216),
-          ),
-          const SizedBox(width: Space.s3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                IgnorePointer(
-                  ignoring: !enabled,
-                  child: DateField(
-                    date: photo.takenAt,
-                    label: 'ngày chụp',
-                    onChanged: (d) {
-                      photo.takenAt = d;
-                      onChanged();
-                    },
-                  ),
-                ),
-                const SizedBox(height: Space.s2),
-                TextFormField(
-                  initialValue: photo.title,
-                  enabled: enabled,
-                  minLines: 1,
-                  maxLines: 4,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (v) => photo.title = v,
-                  style: AppText.script.copyWith(fontSize: 18),
-                  decoration: const InputDecoration(hintText: 'tiêu đề ảnh — viết gì cũng được…'),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Bỏ ảnh này',
-            onPressed: enabled ? onRemove : null,
-            icon: const Icon(Icons.close, size: 20, color: Paper.c7),
-          ),
-        ],
-      ),
     );
   }
 }

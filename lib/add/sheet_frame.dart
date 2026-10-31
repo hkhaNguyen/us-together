@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/vi_format.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
+import 'photo_pipeline.dart';
 
 /// Opens [sheet] as the paper bottom sheet from the add designs.
 Future<void> showPaperSheet(BuildContext context, Widget sheet) => showModalBottomSheet(
@@ -97,6 +98,97 @@ class FieldLabel extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 4),
         child: Text(text, style: AppText.label.copyWith(fontSize: 11, letterSpacing: 0, fontWeight: FontWeight.w400)),
       );
+}
+
+/// Dashed "+ thêm" tile that opens the photo picker.
+class AddPhotoTile extends StatelessWidget {
+  const AddPhotoTile({super.key, required this.busy, required this.onTap, this.size = 84});
+
+  final bool busy;
+  final VoidCallback? onTap;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Paper.c3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Paper.c6, width: 1.5)),
+      child: InkWell(
+        onTap: busy ? null : onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox.square(
+          dimension: size,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              busy
+                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Paper.c8))
+                  : const Icon(Icons.add, size: 20, color: Paper.c8),
+              const SizedBox(height: 4),
+              Text('thêm', style: AppText.label.copyWith(fontSize: 10, letterSpacing: 0, color: Paper.c8)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A picked photo with ✕ to drop it; on moments, tapping makes it the cover.
+class PickedPhotoTile extends StatelessWidget {
+  const PickedPhotoTile({super.key, required this.photo, required this.onRemove, this.isCover = false, this.onTap, this.size = 84});
+
+  final PickedPhoto photo;
+  final bool isCover;
+  final VoidCallback? onTap;
+  final VoidCallback? onRemove;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: onTap != null,
+      selected: isCover,
+      label: isCover ? 'Ảnh bìa' : (onTap != null ? 'Chọn làm bìa' : 'Ảnh đã chọn'),
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox.square(
+          dimension: size,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                // Decoded small: the originals can be 12+ megapixels.
+                child: Image.memory(photo.bytes, fit: BoxFit.cover, cacheWidth: (size * 3).round()),
+              ),
+              if (isCover)
+                Positioned(
+                  left: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: Paper.c8, borderRadius: BorderRadius.circular(Radii.pill)),
+                    child: Text('bìa', style: AppText.label.copyWith(fontSize: 9, letterSpacing: 0, color: Paper.c1)),
+                  ),
+                ),
+              Positioned(
+                right: 0,
+                top: 0,
+                child: IconButton(
+                  tooltip: 'Bỏ ảnh này',
+                  onPressed: onRemove,
+                  visualDensity: VisualDensity.compact,
+                  style: IconButton.styleFrom(backgroundColor: Paper.c1.withValues(alpha: .85)),
+                  icon: const Icon(Icons.close, size: 14, color: Paper.c8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// A date in script that opens the picker when tapped.

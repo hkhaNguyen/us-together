@@ -10,7 +10,12 @@ import 'sheet_frame.dart';
 
 /// 04 · Thêm kỷ niệm (a moment): photos, date, anniversary, title and the story.
 class AddMomentSheet extends StatefulWidget {
-  const AddMomentSheet({super.key, required this.store, required this.journal, required this.me});
+  const AddMomentSheet({
+    super.key,
+    required this.store,
+    required this.journal,
+    required this.me,
+  });
 
   final JournalStore store;
   final Journal journal;
@@ -54,7 +59,9 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
   void _setDate(DateTime date, {required bool byHand}) {
     _date = DateUtils.dateOnly(date);
     _dateTouched |= byHand;
-    if (!_anniversaryTouched) _anniversaryId = widget.journal.anniversaryOn(_date)?.id;
+    if (!_anniversaryTouched) {
+      _anniversaryId = widget.journal.anniversaryOn(_date)?.id;
+    }
   }
 
   Future<void> _pick() async {
@@ -69,7 +76,9 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
       if (!mounted) return;
       setState(() {
         _photos.addAll(picked);
-        if (!_dateTouched && _photos.isNotEmpty) _setDate(_photos.first.takenAt, byHand: false);
+        if (!_dateTouched && _photos.isNotEmpty) {
+          _setDate(_photos.first.takenAt, byHand: false);
+        }
       });
     } catch (e) {
       if (mounted) setState(() => _error = 'chưa mở được ảnh ($e)');
@@ -79,9 +88,9 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
   }
 
   void _remove(int i) => setState(() {
-        _photos.removeAt(i);
-        if (_cover >= i && _cover > 0) _cover--;
-      });
+    _photos.removeAt(i);
+    if (_cover >= i && _cover > 0) _cover--;
+  });
 
   Future<void> _save() async {
     setState(() {
@@ -115,8 +124,8 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
     final status = !busy
         ? null
         : _photos.isEmpty || uploaded >= _photos.length
-            ? 'đang lưu…'
-            : 'đang tải ảnh ${uploaded + 1}/${_photos.length}…';
+        ? 'đang lưu…'
+        : 'đang tải ảnh ${uploaded + 1}/${_photos.length}…';
 
     return SheetFrame(
       title: 'Thêm kỷ niệm',
@@ -125,7 +134,9 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
       status: status,
       error: _error,
       children: [
-        FieldLabel('ẢNH · ${_photos.length} ĐÃ CHỌN${_photos.length > 1 ? ' — chạm ảnh để chọn bìa' : ''}'),
+        FieldLabel(
+          'ẢNH · ${_photos.length} ĐÃ CHỌN${_photos.length > 1 ? ' — chạm ảnh để chọn bìa' : ''}',
+        ),
         SizedBox(
           height: 84,
           child: ListView.separated(
@@ -133,8 +144,8 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
             itemCount: _photos.length + 1,
             separatorBuilder: (_, _) => const SizedBox(width: Space.s2),
             itemBuilder: (context, i) => i == 0
-                ? _AddTile(busy: _picking, onTap: busy ? null : _pick)
-                : _PhotoTile(
+                ? AddPhotoTile(busy: _picking, onTap: busy ? null : _pick)
+                : PickedPhotoTile(
                     photo: _photos[i - 1],
                     isCover: _cover == i - 1,
                     onTap: busy ? null : () => setState(() => _cover = i - 1),
@@ -153,7 +164,11 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
                   const FieldLabel('ngày'),
                   IgnorePointer(
                     ignoring: busy,
-                    child: DateField(date: _date, onChanged: (d) => setState(() => _setDate(d, byHand: true))),
+                    child: DateField(
+                      date: _date,
+                      onChanged: (d) =>
+                          setState(() => _setDate(d, byHand: true)),
+                    ),
                   ),
                 ],
               ),
@@ -171,14 +186,26 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
                     onChanged: busy
                         ? null
                         : (id) => setState(() {
-                              _anniversaryId = id;
-                              _anniversaryTouched = true;
-                            }),
-                    style: AppText.body.copyWith(fontSize: 13, fontWeight: FontWeight.w400),
+                            _anniversaryId = id;
+                            _anniversaryTouched = true;
+                          }),
+                    style: AppText.body.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('— không —')),
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('— không —'),
+                      ),
                       for (final a in widget.journal.anniversaries)
-                        DropdownMenuItem(value: a.id, child: Text(a.titleOn(_date), overflow: TextOverflow.ellipsis)),
+                        DropdownMenuItem(
+                          value: a.id,
+                          child: Text(
+                            a.titleOn(_date),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                     ],
                   ),
                 ],
@@ -193,10 +220,12 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
           enabled: !busy,
           textCapitalization: TextCapitalization.sentences,
           style: AppText.title.copyWith(fontSize: 20),
-          decoration: const InputDecoration(hintText: 'Ví dụ: Bốn năm, vẫn là em'),
+          decoration: const InputDecoration(
+            hintText: 'Ví dụ: Đi sở thú cùng béo iu',
+          ),
         ),
         const SizedBox(height: Space.s5),
-        const FieldLabel('chuyện gì đã xảy ra'),
+        const FieldLabel('Nội dung'),
         TextField(
           controller: _body,
           enabled: !busy,
@@ -205,99 +234,19 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
           textCapitalization: TextCapitalization.sentences,
           style: AppText.quote.copyWith(height: 1.6),
           decoration: InputDecoration(
-            hintText: 'viết tự nhiên như ghi nhật ký… xuống dòng thoải mái',
+            hintText: 'Viết gì cũng được ạ, bựa bựa cũng oki',
             fillColor: Paper.polaroid,
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Paper.c5)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Paper.c8, width: 1.5)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Paper.c5),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Paper.c8, width: 1.5),
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _AddTile extends StatelessWidget {
-  const _AddTile({required this.busy, required this.onTap});
-
-  final bool busy;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Paper.c3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Paper.c6, width: 1.5)),
-      child: InkWell(
-        onTap: busy ? null : onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: SizedBox.square(
-          dimension: 84,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              busy
-                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Paper.c8))
-                  : const Icon(Icons.add, size: 20, color: Paper.c8),
-              const SizedBox(height: 4),
-              Text('thêm', style: AppText.label.copyWith(fontSize: 10, letterSpacing: 0, color: Paper.c8)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({required this.photo, required this.isCover, required this.onTap, required this.onRemove});
-
-  final PickedPhoto photo;
-  final bool isCover;
-  final VoidCallback? onTap;
-  final VoidCallback? onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: isCover,
-      label: isCover ? 'Ảnh bìa' : 'Chọn làm bìa',
-      child: GestureDetector(
-        onTap: onTap,
-        child: SizedBox.square(
-          dimension: 84,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.memory(photo.bytes, fit: BoxFit.cover, cacheWidth: 252),
-              ),
-              if (isCover)
-                Positioned(
-                  left: 6,
-                  top: 6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: Paper.c8, borderRadius: BorderRadius.circular(Radii.pill)),
-                    child: Text('bìa', style: AppText.label.copyWith(fontSize: 9, letterSpacing: 0, color: Paper.c1)),
-                  ),
-                ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: IconButton(
-                  tooltip: 'Bỏ ảnh này',
-                  onPressed: onRemove,
-                  visualDensity: VisualDensity.compact,
-                  style: IconButton.styleFrom(backgroundColor: Paper.c1.withValues(alpha: .85)),
-                  icon: const Icon(Icons.close, size: 14, color: Paper.c8),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

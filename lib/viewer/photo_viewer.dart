@@ -55,9 +55,12 @@ class _PhotoViewerState extends State<PhotoViewer> {
     }
   }
 
-  Future<void> _editTitle(Photo photo) async {
+  /// The title is the stack's, so it changes on every photo in it.
+  Future<void> _editTitle(Journal journal, Photo photo) async {
     final title = await showDialog<String>(context: context, builder: (_) => _TitleDialog(initial: photo.title ?? ''));
-    if (title != null) await widget.store.setPhotoTitle(photo.id, title);
+    if (title == null) return;
+    final stack = photo.stackId == null ? [photo.id] : [for (final p in journal.photos) if (p.stackId == photo.stackId) p.id];
+    await widget.store.setTitle(stack, title);
   }
 
   Future<void> _attach(Journal journal, Photo photo) async {
@@ -208,7 +211,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
                         children: [
                           if (photo.momentId == null && journal.moments.isNotEmpty)
                             _PillButton(label: 'gắn vào kỷ niệm', onPressed: () => _attach(journal, photo)),
-                          if (mine) _PillButton(label: 'sửa tiêu đề', onPressed: () => _editTitle(photo)),
+                          if (mine) _PillButton(label: 'sửa tiêu đề', onPressed: () => _editTitle(journal, photo)),
                           _PillButton(label: _saving ? 'đang tải…' : 'tải về', onPressed: _saving ? null : () => _save(photo)),
                         ],
                       ),

@@ -6,14 +6,13 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 
-/// A photo picked from the device, not uploaded yet. The date and title are
-/// edited in the sheet before saving.
+/// A photo picked from the device, not uploaded yet. Its date can be
+/// changed in the sheet before saving.
 class PickedPhoto {
   PickedPhoto({required this.bytes, required this.takenAt});
 
   final Uint8List bytes;
   DateTime takenAt;
-  String title = '';
 }
 
 /// Opens the system picker; an empty list if they backed out.

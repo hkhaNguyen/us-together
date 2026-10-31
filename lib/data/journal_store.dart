@@ -18,7 +18,7 @@ typedef Session = ({Journal journal, String me});
 ///                        list for the rules; several emails per person
 ///   moments/{id}         date, title, body, photoIds, coverPhotoId, addedBy,
 ///                        anniversaryId, createdAt
-///   photos/{id}          takenAt, addedBy, title, momentId, thumbUrl, fullUrl,
+///   photos/{id}          takenAt, addedBy, title, stackId, momentId, thumbUrl, fullUrl,
 ///                        w, h, createdAt — files under photos/{id}/ in Storage
 ///   entries/{id}         momentId, author, text, createdAt
 ///   anniversaries/{id}   title, date, yearly, isStart
@@ -64,11 +64,21 @@ class JournalStore {
         'isStart': true,
       });
 
-  /// Loose photos, each with its own date and title. [onProgress] gets the
-  /// number uploaded so far.
-  Future<void> addPhotos(List<PickedPhoto> photos, {required String by, ValueChanged<int>? onProgress}) async {
+  /// One go of loose photos: a single stack on the stem sharing [date] and
+  /// [title]. Each keeps its own time of day so they stay in shooting order.
+  /// [onProgress] gets the number uploaded so far.
+  Future<void> addPhotoStack(
+    List<PickedPhoto> photos, {
+    required DateTime date,
+    required String title,
+    required String by,
+    ValueChanged<int>? onProgress,
+  }) async {
+    for (final p in photos) {
+      p.takenAt = DateTime(date.year, date.month, date.day, p.takenAt.hour, p.takenAt.minute, p.takenAt.second);
+    }
     final batch = _db.batch();
-    await _uploadAll(photos, batch, by: by, onProgress: onProgress);
+    await _uploadAll(photos, batch, by: by, stackId: _db.collection('photos').doc().id, title: title, onProgress: onProgress);
     await batch.commit();
   }
 
@@ -102,8 +112,15 @@ class JournalStore {
   DocumentReference<Map<String, dynamic>> _photo(String id) => _db.collection('photos').doc(id);
   DocumentReference<Map<String, dynamic>> _moment(String id) => _db.collection('moments').doc(id);
 
-  Future<void> setPhotoTitle(String photoId, String title) =>
-      _photo(photoId).update({'title': title.trim().isEmpty ? null : title.trim()});
+  /// Titles belong to a whole stack, so all of [photoIds] change together.
+  Future<void> setTitle(List<String> photoIds, String title) {
+    final value = title.trim().isEmpty ? null : title.trim();
+    final batch = _db.batch();
+    for (final id in photoIds) {
+      batch.update(_photo(id), {'title': value});
+    }
+    return batch.commit();
+  }
 
   Future<void> setCover(String momentId, String photoId) => _moment(momentId).update({'coverPhotoId': photoId});
 
@@ -150,18 +167,20 @@ class JournalStore {
     WriteBatch batch, {
     required String by,
     String? momentId,
+    String? stackId,
+    String title = '',
     ValueChanged<int>? onProgress,
   }) async {
     final ids = <String>[];
     for (final p in photos) {
       final doc = _db.collection('photos').doc();
       final files = await _uploader.upload(doc.id, p);
-      final title = p.title.trim();
       batch.set(doc, {
         ...files,
         'takenAt': Timestamp.fromDate(p.takenAt),
         'addedBy': by,
-        'title': title.isEmpty ? null : title,
+        'title': title.trim().isEmpty ? null : title.trim(),
+        'stackId': stackId,
         'momentId': momentId,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -208,6 +227,7 @@ class JournalStore {
             },
             title: d.data()['title'] as String?,
             momentId: d.data()['momentId'] as String?,
+            stackId: d.data()['stackId'] as String?,
           ),
       ],
       entries: [

@@ -21,6 +21,7 @@ class Photo {
     this.fullUrl,
     this.aspectRatio = 1,
     this.title,
+    this.stackId,
     this.momentId,
   });
 
@@ -33,8 +34,12 @@ class Photo {
   /// Width / height, known before the image loads so nothing jumps.
   final double aspectRatio;
 
-  /// Free-form, any length; polaroids show one line, the viewer all of it.
+  /// Free-form, any length, shared by the whole stack; polaroids show one
+  /// line, the viewer all of it.
   final String? title;
+
+  /// Photos added in one go share this and hang as one stack.
+  final String? stackId;
 
   /// null = a loose photo pinned on the stem.
   final String? momentId;

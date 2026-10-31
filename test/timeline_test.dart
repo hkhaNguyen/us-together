@@ -51,13 +51,27 @@ void main() {
   group('timeline', () {
     final entries = buildTimeline(journal);
 
-    test('newest first, loose photos grouped by day', () {
+    test('newest first, loose photos grouped by the go they were added in', () {
       final dates = entries.map((e) => e.date).toList();
       for (var i = 1; i < dates.length; i++) {
         expect(dates[i].isAfter(dates[i - 1]), isFalse, reason: 'entry $i');
       }
       final firstStack = entries.whereType<PhotoStackEntry>().first;
       expect(firstStack.photos, hasLength(3));
+    });
+
+    test('two goes on the same day stay two stacks; old photos without one group by day', () {
+      final day = DateTime(2026, 5, 1, 9);
+      Photo p(String id, {String? stack}) => Photo(id: id, takenAt: day, addedBy: 'hkha', stackId: stack);
+      final j = Journal(
+        people: journal.people,
+        moments: const [],
+        photos: [p('a1', stack: 'a'), p('a2', stack: 'a'), p('b1', stack: 'b'), p('old1'), p('old2')],
+        entries: const [],
+        anniversaries: const [],
+      );
+      final sizes = buildTimeline(j).whereType<PhotoStackEntry>().map((s) => s.photos.length).toList()..sort();
+      expect(sizes, [1, 2, 2]);
     });
 
     TimelineLayout lay(double width, [double scale = 1]) =>

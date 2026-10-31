@@ -37,6 +37,7 @@ class MomentEntry extends TimelineEntry {
   DateTime get date => moment.date;
 }
 
+/// Loose photos added in one go (or, for older ones, on one day).
 class PhotoStackEntry extends TimelineEntry {
   const PhotoStackEntry({required this.photos, required this.addedBy});
 
@@ -71,11 +72,12 @@ List<TimelineEntry> buildTimeline(Journal journal) {
     ));
   }
 
-  final looseByDay = <DateTime, List<Photo>>{};
+  // One stack per go of adding; photos without one fall back to their day.
+  final stacks = <Object, List<Photo>>{};
   for (final p in journal.photos.where((p) => p.momentId == null)) {
-    looseByDay.putIfAbsent(_day(p.takenAt), () => []).add(p);
+    stacks.putIfAbsent(p.stackId ?? _day(p.takenAt), () => []).add(p);
   }
-  for (final photos in looseByDay.values) {
+  for (final photos in stacks.values) {
     photos.sort((a, b) => b.takenAt.compareTo(a.takenAt));
     entries.add(PhotoStackEntry(photos: photos, addedBy: journal.person(photos.first.addedBy)));
   }
