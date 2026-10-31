@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "81386949637",
+    "project_id": "us-together-a1e30",
+    "storage_bucket": "us-together-a1e30.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:81386949637:android:3f43fbcccc0b93db1ca06c",
+        "android_client_info": {
+          "package_name": "com.hkha.us_together"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGWm39YaqTdrD8eJLTzPGGnTtDz4PHPSo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

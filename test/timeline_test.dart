@@ -1,0 +1,90 @@
+import 'package:flutter/painting.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:us_together/data/mock_journal.dart';
+import 'package:us_together/data/vi_format.dart';
+import 'package:us_together/home/timeline.dart';
+import 'package:us_together/home/timeline_layout.dart';
+
+/// Test-font stand-in for MomentCard.titleStyle (Google Fonts can't load here).
+const titleStyle = TextStyle(fontSize: 15, height: 1.2);
+
+void main() {
+  final journal = mockJournal();
+
+  group('journal', () {
+    test('days together matches the design: 1.462 on 31/10/2026', () {
+      expect(thousands(journal.daysTogether(DateTime(2026, 10, 31))), '1.462');
+    });
+
+    test('upcoming: nearest yearly date, today counts as 0', () {
+      final next = journal.upcoming(DateTime(2026, 10, 31))!;
+      expect((next.anniversary.title, next.days), ('sinh nhật Xuka', 23));
+      expect(journal.upcoming(DateTime(2026, 10, 30))!.days, 0);
+    });
+  });
+
+  group('timeline', () {
+    final entries = buildTimeline(journal);
+
+    test('newest first, loose photos grouped by day', () {
+      final dates = entries.map((e) => e.date).toList();
+      for (var i = 1; i < dates.length; i++) {
+        expect(dates[i].isAfter(dates[i - 1]), isFalse, reason: 'entry $i');
+      }
+      final firstStack = entries.whereType<PhotoStackEntry>().first;
+      expect(firstStack.photos, hasLength(3));
+    });
+
+    TimelineLayout lay(double width, [double scale = 1]) =>
+        layoutTimeline(entries, width, textScaler: TextScaler.linear(scale), momentTitleStyle: titleStyle);
+
+    test('card height follows the real title: one line is shorter than two', () {
+      // Neither has cảm nghĩ, so only the title differs.
+      final cards = {for (final p in lay(390).placed) p.entry.id: p.rect.height};
+      expect(cards['m5']! + 17, lessThan(cards['m3']!)); // "Giáng sinh" vs a two-line title
+    });
+
+    for (final width in [360.0, 390.0, 412.0, 480.0]) {
+      for (final scale in [1.0, 1.3]) {
+        test('layout at ${width}px, text ×$scale: no overlaps, branches spaced', () {
+          final layout = lay(width, scale);
+          final placed = layout.placed;
+          expect(placed, hasLength(entries.length));
+
+          for (var i = 0; i < placed.length; i++) {
+            final a = placed[i];
+            expect(a.rect.left, greaterThanOrEqualTo(0));
+            expect(a.rect.right, lessThanOrEqualTo(width));
+            expect(a.rect.bottom, lessThan(layout.height));
+            if (i > 0) {
+              expect(a.branchStart.dy - placed[i - 1].branchStart.dy, greaterThanOrEqualTo(branchSpacing));
+            }
+            for (final b in placed.skip(i + 1).where((b) => b.side == a.side)) {
+              expect(a.rect.overlaps(b.rect), isFalse, reason: '${a.entry.id} vs ${b.entry.id}');
+            }
+            for (final k in layout.markers) {
+              final band = Rect.fromLTWH(0, k.y, width, markerHeight);
+              expect(a.rect.overlaps(band), isFalse, reason: '${a.entry.id} vs marker ${k.month}');
+            }
+          }
+        });
+      }
+    }
+
+    test('a marker wherever the month changes, big leaf on new years', () {
+      final layout = lay(390);
+      final months = {for (final e in entries) DateTime(e.date.year, e.date.month)};
+      expect(layout.markers, hasLength(months.length - 1));
+      expect(layout.markers.where((k) => k.newYear).map((k) => k.month.year), [2025]);
+    });
+
+    test('branch roots sit on the stem', () {
+      final m = TimelineMetrics(390);
+      final metric = m.stemPath(2000).computeMetrics().first;
+      for (var d = 0.0; d < metric.length; d += 37) {
+        final p = metric.getTangentForOffset(d)!.position;
+        expect(m.stemXAt(p.dy), closeTo(p.dx, .01));
+      }
+    });
+  });
+}
