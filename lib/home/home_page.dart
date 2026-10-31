@@ -116,8 +116,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     GoogleFonts.pendingFonts([MomentCard.titleStyle]).then((_) {
       if (mounted) setState(() {});
     });
-    // Notifications for the other one's news; Android asks once by itself.
-    _push.start(widget.meId, ask: !kIsWeb);
+    // Notifications for the other one's news (Android app only).
+    _push.start(widget.meId);
     // Photos shared from the gallery open straight in the add-photos sheet.
     SharedPhotos.listen((photos) {
       if (!mounted) return;
@@ -263,24 +263,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _open(AnniversariesPage(session: widget.session, store: widget.store));
 
   Future<void> _openProfileMenu(BuildContext button) async {
-    // Android asks on its own at start; a browser needs this tap to ask.
-    final offerPush = kIsWeb && await _push.supported && !await _push.allowed;
-    if (!button.mounted) return;
-    final choice = await _menuAt(button, [
-      const PopupMenuItem(value: 'replay', child: Text('Xem từ đầu')),
-      const PopupMenuItem(value: 'avatar', child: Text('Đổi ảnh đại diện')),
-      const PopupMenuItem(value: 'trash', child: Text('Thùng giấy')),
-      if (offerPush) const PopupMenuItem(value: 'push', child: Text('Bật thông báo')),
-      const PopupMenuItem(value: 'sign-out', child: Text('Đăng xuất')),
+    final choice = await _menuAt(button, const [
+      PopupMenuItem(value: 'replay', child: Text('Xem từ đầu')),
+      PopupMenuItem(value: 'avatar', child: Text('Đổi ảnh đại diện')),
+      PopupMenuItem(value: 'trash', child: Text('Thùng giấy')),
+      PopupMenuItem(value: 'sign-out', child: Text('Đăng xuất')),
     ]);
     switch (choice) {
-      case 'push':
-        final on = await _push.start(widget.meId, ask: true);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(on ? 'đã bật thông báo' : 'trình duyệt chưa cho phép thông báo'),
-          ));
-        }
       case 'replay':
         _startReplay();
       case 'avatar':

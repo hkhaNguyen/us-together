@@ -60,8 +60,8 @@ told their account isn't in the book. To use it yourselves, run your own copy.
   day itself a heart with confetti.
 - **Xem từ đầu**: replays the journal from the pot up, regrowing the stem
   branch by branch and ending on the day count.
-- **Notifications**: when one of you adds photos, a moment or a reflection,
-  the other one hears about it, once per batch.
+- **Notifications** (Android): when one of you adds photos, a moment or a
+  reflection, the other one hears about it, once per batch.
 - **Share from the gallery** (Android): "Share → us-together" opens the
   add-photos sheet with those photos already in.
 - **Trash**: deleted things wait 30 days and either of you can restore them.
@@ -119,12 +119,7 @@ the [Firebase CLI](https://firebase.google.com/docs/cli) and the
    > Someone with several Google accounts gets one `members` document per
    > email, all pointing at the same person.
 
-6. **For notifications on the web**, generate a key pair under Project
-   settings → Cloud Messaging → Web Push certificates, and put its public
-   key in `_webPushKey` in [`lib/data/push.dart`](lib/data/push.dart).
-   Android needs nothing more.
-
-7. **Run it**, then set the day you got together from the home screen's
+6. **Run it**, then set the day you got together from the home screen's
    header.
 
    ```sh
@@ -147,11 +142,6 @@ firebase deploy --only hosting
 
 `firebase.json` serves the app as a single page and keeps browsers from
 holding on to a stale `main.dart.js` after a deploy.
-
-> [!NOTE]
-> On iPhone, web notifications only work once the site is added to the home
-> screen (iOS 16.4 or later) and turned on from "Bật thông báo" in the
-> profile menu.
 
 ### Android
 

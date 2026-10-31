@@ -60,8 +60,8 @@ trong sổ. Muốn dùng cho hai bạn thì hãy tự dựng một bản riêng.
   ngày đó thì có trái tim cùng pháo giấy.
 - **Xem từ đầu**: xem lại cả cuốn sổ từ chậu lên, thân cây mọc lại từng nhánh
   và kết thúc bằng con số ngày bên nhau.
-- **Thông báo**: khi một người thêm ảnh, kỷ niệm hay cảm nghĩ, người kia
-  nhận được thông báo, mỗi lượt thêm một lần.
+- **Thông báo** (Android): khi một người thêm ảnh, kỷ niệm hay cảm nghĩ,
+  người kia nhận được thông báo, mỗi lượt thêm một lần.
 - **Chia sẻ từ thư viện ảnh** (Android): "Chia sẻ → us-together" mở sheet
   thêm ảnh với sẵn những ảnh đó.
 - **Thùng giấy**: thứ bị xoá nằm chờ 30 ngày, ai trong hai người cũng khôi
@@ -119,12 +119,7 @@ Cần có [Flutter](https://docs.flutter.dev/get-started/install) (bản stable)
    > Ai dùng nhiều tài khoản Google thì mỗi email thêm một tài liệu `members`,
    > tất cả trỏ về cùng một người.
 
-6. **Muốn có thông báo trên web**, tạo một cặp khoá ở Project settings →
-   Cloud Messaging → Web Push certificates, rồi dán khoá công khai vào
-   `_webPushKey` trong [`lib/data/push.dart`](lib/data/push.dart). Android
-   không cần thêm gì.
-
-7. **Chạy app**, rồi đặt ngày bắt đầu yêu bằng dòng chữ ở phần đầu trang chủ.
+6. **Chạy app**, rồi đặt ngày bắt đầu yêu bằng dòng chữ ở phần đầu trang chủ.
 
    ```sh
    flutter run -d chrome   # hoặc một máy Android
@@ -146,10 +141,6 @@ firebase deploy --only hosting
 
 `firebase.json` phục vụ app dạng một trang và không để trình duyệt giữ bản
 `main.dart.js` cũ sau mỗi lần deploy.
-
-> [!NOTE]
-> Trên iPhone, thông báo web chỉ chạy khi đã thêm trang vào màn hình chính
-> (iOS 16.4 trở lên) và bật ở mục "Bật thông báo" trong menu ảnh đại diện.
 
 ### Android
 

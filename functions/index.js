@@ -2,15 +2,11 @@
 // document in the same batch. This sends it as a notification to every
 // device the other one has filed under tokens/, then removes it.
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
-const { defineString } = require('firebase-functions/params');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 
 initializeApp();
-
-// Where a tapped notification opens on the web.
-const appUrl = defineString('APP_URL', { default: 'https://ustogether.space' });
 
 // FCM's answer for a token whose app was uninstalled or signed out.
 const goneTokens = new Set(['messaging/registration-token-not-registered', 'messaging/invalid-registration-token']);
@@ -31,10 +27,6 @@ exports.tellTheOther = onDocumentCreated(
       const result = await getMessaging().sendEachForMulticast({
         tokens: tokens.docs.map((d) => d.id),
         notification: { title, body },
-        webpush: {
-          notification: { icon: '/icons/Icon-192.png' },
-          fcmOptions: { link: appUrl.value() },
-        },
       });
       await Promise.all(
         result.responses.map((r, i) => (goneTokens.has(r.error?.code) ? tokens.docs[i].ref.delete() : null)),

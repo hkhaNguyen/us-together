@@ -10,39 +10,29 @@ import 'journal_store.dart';
 // one is what firebase-admin's sendEachForMulticast takes today.
 // ignore_for_file: deprecated_member_use
 
-/// Notifications for when the other one adds something. Each device's push
-/// token is filed under whoever uses it; functions/index.js does the sending.
+/// Notifications for when the other one adds something, on the Android app
+/// only. Each device's push token is filed under whoever uses it;
+/// functions/index.js does the sending.
 class Push {
   Push(this._store);
 
   final JournalStore _store;
   StreamSubscription<String>? _refresh;
 
-  /// Public half of the web push certificate (Firebase console → Cloud
-  /// Messaging → Web Push certificates). Not a secret.
-  static const _webPushKey = '';
-
   FirebaseMessaging get _fcm => FirebaseMessaging.instance;
-  String get _platform => kIsWeb ? 'web' : defaultTargetPlatform.name;
+  bool get _supported => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  /// False where push can't work, e.g. Safari outside a home-screen app.
-  Future<bool> get supported async => (!kIsWeb || _webPushKey.isNotEmpty) && await _fcm.isSupported();
-
-  Future<bool> get allowed async =>
-      (await _fcm.getNotificationSettings()).authorizationStatus == AuthorizationStatus.authorized;
-
-  /// Files this device under [person] if notifications are on. With [ask]
-  /// it first asks for them, which the web only allows from a tap.
-  /// Returns whether they're on.
-  Future<bool> start(String person, {bool ask = false}) async {
+  /// Asks once for permission, then files this device under [person].
+  /// Returns whether notifications are on.
+  Future<bool> start(String person) async {
+    if (!_supported) return false;
     try {
-      if (!await supported) return false;
-      if (ask) await _fcm.requestPermission();
-      if (!await allowed) return false;
-      final token = await _fcm.getToken(vapidKey: kIsWeb ? _webPushKey : null);
+      final settings = await _fcm.requestPermission();
+      if (settings.authorizationStatus != AuthorizationStatus.authorized) return false;
+      final token = await _fcm.getToken();
       if (token == null) return false;
-      await _store.saveToken(token, person: person, platform: _platform);
-      _refresh ??= _fcm.onTokenRefresh.listen((t) => _store.saveToken(t, person: person, platform: _platform));
+      await _store.saveToken(token, person: person, platform: 'android');
+      _refresh ??= _fcm.onTokenRefresh.listen((t) => _store.saveToken(t, person: person, platform: 'android'));
       return true;
     } catch (_) {
       // Push is a nicety: the journal works the same without it.
@@ -54,9 +44,9 @@ class Push {
   Future<void> forget() async {
     await _refresh?.cancel();
     _refresh = null;
+    if (!_supported) return;
     try {
-      if (!await supported) return;
-      final token = await _fcm.getToken(vapidKey: kIsWeb ? _webPushKey : null);
+      final token = await _fcm.getToken();
       if (token != null) await _store.forgetToken(token);
       await _fcm.deleteToken();
     } catch (_) {}
