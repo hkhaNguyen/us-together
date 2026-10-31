@@ -3,7 +3,7 @@
     <!-- Saving photos to the gallery on Android 10 and older. -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
     <application
-        android:label="us_together"
+        android:label="us-together"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

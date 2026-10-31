@@ -11,10 +11,13 @@ import '../theme/tokens.dart';
 /// slice of it, so the same painter serves the quick open-app bloom and the
 /// slow "xem từ đầu" bloom — only the controller's duration differs.
 class SakuraFlower extends StatelessWidget {
-  const SakuraFlower({super.key, required this.bloom, this.size = 200});
+  const SakuraFlower({super.key, required this.bloom, this.size = 200, this.simple = false});
 
   final Animation<double> bloom;
   final double size;
+
+  /// For 48px and under (favicons): flat petals and the centre, no stamens.
+  final bool simple;
 
   /// Sequence length the slices below are measured against: petals stagger
   /// 40ms over 600ms, stamens follow 150ms after the last petal, center last.
@@ -24,15 +27,16 @@ class SakuraFlower extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: _SakuraPainter(bloom)),
+      child: CustomPaint(painter: _SakuraPainter(bloom, simple: simple)),
     );
   }
 }
 
 class _SakuraPainter extends CustomPainter {
-  _SakuraPainter(this.bloom) : super(repaint: bloom);
+  _SakuraPainter(this.bloom, {required this.simple}) : super(repaint: bloom);
 
   final Animation<double> bloom;
+  final bool simple;
 
   // Slices of the 900ms sequence, in ms.
   static const _total = 900.0;
@@ -66,6 +70,14 @@ class _SakuraPainter extends CustomPainter {
     ..strokeWidth = 2.4
     ..color = Sakura.petalStroke;
 
+  // Small sizes: one flat pink and a heavier outline that survives shrinking.
+  static final _flatFill = Paint()..color = Sakura.c3;
+  static final _flatStroke = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 8
+    ..strokeJoin = StrokeJoin.round
+    ..color = Sakura.c7;
+
   @override
   void paint(Canvas canvas, Size size) {
     final t = bloom.value;
@@ -83,10 +95,15 @@ class _SakuraPainter extends CustomPainter {
         ..translate(-_c.dx, -_c.dy);
       if (opacity < 1) canvas.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, opacity));
       canvas
-        ..drawPath(_petalPath, _petalFill)
-        ..drawPath(_petalPath, _petalStroke);
+        ..drawPath(_petalPath, simple ? _flatFill : _petalFill)
+        ..drawPath(_petalPath, simple ? _flatStroke : _petalStroke);
       if (opacity < 1) canvas.restore();
       canvas.restore();
+    }
+
+    if (simple) {
+      canvas.drawCircle(_c, 34 * _center.transform(t), Paint()..color = Sakura.c6);
+      return;
     }
 
     final reach = _stamens.transform(t);
@@ -129,5 +146,5 @@ class _SakuraPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SakuraPainter old) => old.bloom != bloom;
+  bool shouldRepaint(_SakuraPainter old) => old.bloom != bloom || old.simple != simple;
 }
