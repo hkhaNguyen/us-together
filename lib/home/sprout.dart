@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
@@ -17,10 +18,20 @@ final _sprouted = <String>{};
 ///
 /// Builds a [Positioned], so it must be a direct child of the timeline Stack.
 class Sprout extends StatefulWidget {
-  const Sprout({super.key, required this.placed, required this.scroll, required this.builder});
+  const Sprout({
+    super.key,
+    required this.placed,
+    required this.scroll,
+    required this.builder,
+    this.stemTip,
+  });
 
   final PlacedEntry placed;
   final ScrollController scroll;
+
+  /// In "xem từ đầu": the growing stem's top. The item starts hidden and
+  /// sprouts when the stem grows past its branch, whatever it did before.
+  final ValueListenable<double>? stemTip;
 
   /// Builds the card; `tape` runs 0 → 1 once the card has landed.
   final Widget Function(BuildContext context, Animation<double> tape) builder;
@@ -31,20 +42,42 @@ class Sprout extends StatefulWidget {
 
 class _SproutState extends State<Sprout> with SingleTickerProviderStateMixin {
   static const _ms = 600.0;
-  static Interval _at(double start, double length, Curve curve) => Interval(start / _ms, (start + length) / _ms, curve: curve);
+  static Interval _at(double start, double length, Curve curve) =>
+      Interval(start / _ms, (start + length) / _ms, curve: curve);
 
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-  late final _branch = CurvedAnimation(parent: _c, curve: _at(0, 250, Motion.easeGrow));
-  late final _leaves = [for (var i = 0; i < 2; i++) CurvedAnimation(parent: _c, curve: _at(170 + 80.0 * i, 200, Motion.easeBloom))];
-  late final _card = CurvedAnimation(parent: _c, curve: _at(250, 350, Motion.easePaper));
-  late final _tape = CurvedAnimation(parent: _c, curve: _at(370, 230, Curves.linear));
+  late final _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 600),
+  );
+  late final _branch = CurvedAnimation(
+    parent: _c,
+    curve: _at(0, 250, Motion.easeGrow),
+  );
+  late final _leaves = [
+    for (var i = 0; i < 2; i++)
+      CurvedAnimation(
+        parent: _c,
+        curve: _at(170 + 80.0 * i, 200, Motion.easeBloom),
+      ),
+  ];
+  late final _card = CurvedAnimation(
+    parent: _c,
+    curve: _at(250, 350, Motion.easePaper),
+  );
+  late final _tape = CurvedAnimation(
+    parent: _c,
+    curve: _at(370, 230, Curves.linear),
+  );
 
   String get _id => widget.placed.entry.id;
 
   @override
   void initState() {
     super.initState();
-    if (_sprouted.contains(_id)) {
+    if (widget.stemTip case final tip?) {
+      tip.addListener(_check);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+    } else if (_sprouted.contains(_id)) {
       _c.value = 1;
     } else {
       widget.scroll.addListener(_check);
@@ -55,17 +88,31 @@ class _SproutState extends State<Sprout> with SingleTickerProviderStateMixin {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context) && !_c.isCompleted) _sprout(instant: true);
+    if (MediaQuery.disableAnimationsOf(context) &&
+        !_c.isCompleted &&
+        widget.stemTip == null) {
+      _sprout(instant: true);
+    }
   }
 
   void _check() {
-    if (!mounted || !widget.scroll.hasClients) return;
+    if (!mounted || _c.isAnimating || _c.isCompleted) return;
+    if (widget.stemTip case final tip?) {
+      if (tip.value <= widget.placed.branchStart.dy) {
+        _sprout(instant: MediaQuery.disableAnimationsOf(context));
+      }
+      return;
+    }
+    if (!widget.scroll.hasClients) return;
     final pos = widget.scroll.position;
-    if (widget.placed.rect.top < pos.pixels + pos.viewportDimension * .7) _sprout();
+    if (widget.placed.rect.top < pos.pixels + pos.viewportDimension * .7) {
+      _sprout();
+    }
   }
 
   void _sprout({bool instant = false}) {
     widget.scroll.removeListener(_check);
+    widget.stemTip?.removeListener(_check);
     _sprouted.add(_id);
     if (instant) {
       _c.value = 1;
@@ -77,6 +124,7 @@ class _SproutState extends State<Sprout> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     widget.scroll.removeListener(_check);
+    widget.stemTip?.removeListener(_check);
     for (final a in [_branch, ..._leaves, _card, _tape]) {
       a.dispose();
     }
@@ -89,7 +137,10 @@ class _SproutState extends State<Sprout> with SingleTickerProviderStateMixin {
     final p = widget.placed;
     final right = p.side == Side.right;
     final b = BranchShapes.bounds;
-    final branchArea = (right ? b : Rect.fromLTRB(-b.right, b.top, -b.left, b.bottom)).shift(p.branchStart);
+    final branchArea =
+        (right ? b : Rect.fromLTRB(-b.right, b.top, -b.left, b.bottom)).shift(
+          p.branchStart,
+        );
     final area = p.rect.expandToInclude(branchArea);
     final card = p.rect.shift(-area.topLeft);
     final root = p.branchStart - area.topLeft;
@@ -101,7 +152,14 @@ class _SproutState extends State<Sprout> with SingleTickerProviderStateMixin {
         children: [
           Positioned.fill(
             child: CustomPaint(
-              painter: _BranchPainter(root: root, mirrored: !right, leafCount: p.leaves, branch: _branch, leaves: _leaves, repaint: _c),
+              painter: _BranchPainter(
+                root: root,
+                mirrored: !right,
+                leafCount: p.leaves,
+                branch: _branch,
+                leaves: _leaves,
+                repaint: _c,
+              ),
             ),
           ),
           Positioned.fromRect(
@@ -127,7 +185,10 @@ class _SproutState extends State<Sprout> with SingleTickerProviderStateMixin {
                   opacity: fade,
                   child: Transform.translate(
                     offset: Offset(0, -12 * (1 - t)),
-                    child: Transform.rotate(angle: from + (p.rotation - from) * t, child: child),
+                    child: Transform.rotate(
+                      angle: from + (p.rotation - from) * t,
+                      child: child,
+                    ),
                   ),
                 );
               },
@@ -164,11 +225,29 @@ class _BranchPainter extends CustomPainter {
     if (mirrored) canvas.scale(-1, 1);
 
     final metric = BranchShapes.branchMetric;
-    canvas.drawPath(metric.extractPath(0, metric.length * t), BranchShapes.ink..strokeWidth = 1.6);
-    BranchShapes.drawLeaf(canvas, BranchShapes.leafUp, BranchShapes.leafUpBase, leaves[0].value);
-    if (leafCount > 1) BranchShapes.drawLeaf(canvas, BranchShapes.leafDown, BranchShapes.leafDownBase, leaves[1].value);
+    canvas.drawPath(
+      metric.extractPath(0, metric.length * t),
+      BranchShapes.ink..strokeWidth = 1.6,
+    );
+    BranchShapes.drawLeaf(
+      canvas,
+      BranchShapes.leafUp,
+      BranchShapes.leafUpBase,
+      leaves[0].value,
+    );
+    if (leafCount > 1) {
+      BranchShapes.drawLeaf(
+        canvas,
+        BranchShapes.leafDown,
+        BranchShapes.leafDownBase,
+        leaves[1].value,
+      );
+    }
   }
 
   @override
-  bool shouldRepaint(_BranchPainter old) => old.root != root || old.mirrored != mirrored || old.leafCount != leafCount;
+  bool shouldRepaint(_BranchPainter old) =>
+      old.root != root ||
+      old.mirrored != mirrored ||
+      old.leafCount != leafCount;
 }

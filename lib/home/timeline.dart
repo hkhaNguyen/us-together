@@ -60,16 +60,24 @@ List<TimelineEntry> buildTimeline(Journal journal) {
   final entries = <TimelineEntry>[];
 
   for (final m in journal.moments) {
-    final momentEntries = journal.entries.where((e) => e.momentId == m.id).toList()
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    entries.add(MomentEntry(
-      moment: m,
-      addedBy: journal.person(m.addedBy),
-      cover: journal.photos.where((p) => p.id == m.coverPhotoId).firstOrNull,
-      anniversary: journal.anniversaries.where((a) => a.id == m.anniversaryId).firstOrNull,
-      entryAuthors: [for (final id in {for (final e in momentEntries) e.author}) journal.person(id)],
-      entryCount: momentEntries.length,
-    ));
+    final momentEntries =
+        journal.entries.where((e) => e.momentId == m.id).toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    entries.add(
+      MomentEntry(
+        moment: m,
+        addedBy: journal.person(m.addedBy),
+        cover: journal.photos.where((p) => p.id == m.coverPhotoId).firstOrNull,
+        anniversary: journal.anniversaries
+            .where((a) => a.id == m.anniversaryId)
+            .firstOrNull,
+        entryAuthors: [
+          for (final id in {for (final e in momentEntries) e.author})
+            journal.person(id),
+        ],
+        entryCount: momentEntries.length,
+      ),
+    );
   }
 
   // One stack per go of adding; photos without one fall back to their day.
@@ -79,7 +87,12 @@ List<TimelineEntry> buildTimeline(Journal journal) {
   }
   for (final photos in stacks.values) {
     photos.sort((a, b) => b.takenAt.compareTo(a.takenAt));
-    entries.add(PhotoStackEntry(photos: photos, addedBy: journal.person(photos.first.addedBy)));
+    entries.add(
+      PhotoStackEntry(
+        photos: photos,
+        addedBy: journal.person(photos.first.addedBy),
+      ),
+    );
   }
 
   int rank(TimelineEntry e) => e is MomentEntry ? 0 : 1;

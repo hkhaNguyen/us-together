@@ -21,10 +21,16 @@ class MomentCard extends StatelessWidget {
   static const _cover = 110.0;
   static const _gap = 8.0;
 
-  static TextStyle get titleStyle => AppText.title.copyWith(fontSize: 15, height: 1.2);
+  static TextStyle get titleStyle =>
+      AppText.title.copyWith(fontSize: 15, height: 1.2);
 
   /// [titleStyle] is a parameter so tests can measure without Google Fonts.
-  static double heightFor(MomentEntry e, {required double width, required TextScaler textScaler, required TextStyle titleStyle}) {
+  static double heightFor(
+    MomentEntry e, {
+    required double width,
+    required TextScaler textScaler,
+    required TextStyle titleStyle,
+  }) {
     final title = TextPainter(
       text: TextSpan(text: e.moment.title, style: titleStyle),
       maxLines: 2,
@@ -47,7 +53,10 @@ class MomentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final e = entry;
-    final dateLine = [dotDate(e.date), if (e.anniversary != null) e.anniversary!.titleOn(e.date)].join(' · ');
+    final dateLine = [
+      dotDate(e.date),
+      if (e.anniversary != null) e.anniversary!.titleOn(e.date),
+    ].join(' · ');
 
     return Semantics(
       button: onTap != null,
@@ -60,7 +69,11 @@ class MomentCard extends StatelessWidget {
           children: [
             Positioned.fill(
               child: DecoratedBox(
-                decoration: BoxDecoration(color: Paper.c1, borderRadius: BorderRadius.circular(Radii.card), boxShadow: Shadows.paper),
+                decoration: BoxDecoration(
+                  color: Paper.c1,
+                  borderRadius: BorderRadius.circular(Radii.card),
+                  boxShadow: Shadows.paper,
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(_pad),
                   child: Column(
@@ -71,16 +84,40 @@ class MomentCard extends StatelessWidget {
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Hero(tag: 'cover-${e.moment.id}', child: PhotoBox(url: e.cover?.thumbUrl, radius: Radii.photo)),
-                            if (e.photoCount > 1) Positioned(right: 6, bottom: 6, child: _CountChip('+${e.photoCount - 1}')),
+                            Hero(
+                              tag: 'cover-${e.moment.id}',
+                              child: PhotoBox(
+                                url: e.cover?.thumbUrl,
+                                radius: Radii.photo,
+                              ),
+                            ),
+                            if (e.photoCount > 1)
+                              Positioned(
+                                right: 6,
+                                bottom: 6,
+                                child: _CountChip('+${e.photoCount - 1}'),
+                              ),
                           ],
                         ),
                       ),
                       const SizedBox(height: _gap),
-                      Text(dateLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.script.copyWith(fontSize: 15, height: 1.2)),
+                      Text(
+                        dateLine,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.script.copyWith(
+                          fontSize: 15,
+                          height: 1.2,
+                        ),
+                      ),
                       const SizedBox(height: _gap),
                       Expanded(
-                        child: Text(e.moment.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: titleStyle),
+                        child: Text(
+                          e.moment.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: titleStyle,
+                        ),
                       ),
                       if (e.entryCount > 0) ...[
                         const SizedBox(height: _gap),
@@ -108,8 +145,14 @@ class _CountChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: Paper.c1, borderRadius: BorderRadius.circular(Radii.pill)),
-      child: Text(text, style: AppText.label.copyWith(fontSize: 10, letterSpacing: 0)),
+      decoration: BoxDecoration(
+        color: Paper.c1,
+        borderRadius: BorderRadius.circular(Radii.pill),
+      ),
+      child: Text(
+        text,
+        style: AppText.label.copyWith(fontSize: 10, letterSpacing: 0),
+      ),
     );
   }
 }
@@ -124,9 +167,23 @@ class _Reflections extends StatelessWidget {
     return Row(
       children: [
         for (final (i, p) in entry.entryAuthors.indexed)
-          Transform.translate(offset: Offset(-7.0 * i, 0), child: PersonAvatar(person: p, size: 18, ring: const BorderSide(color: Paper.c1, width: 2))),
+          Transform.translate(
+            offset: Offset(-7.0 * i, 0),
+            child: PersonAvatar(
+              person: p,
+              size: 18,
+              ring: const BorderSide(color: Paper.c1, width: 2),
+            ),
+          ),
         SizedBox(width: 6 - 7.0 * (entry.entryAuthors.length - 1)),
-        Text('${entry.entryCount} cảm nghĩ', style: AppText.label.copyWith(fontSize: 10, letterSpacing: 0, fontWeight: FontWeight.w400)),
+        Text(
+          '${entry.entryCount} cảm nghĩ',
+          style: AppText.label.copyWith(
+            fontSize: 10,
+            letterSpacing: 0,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
       ],
     );
   }

@@ -10,7 +10,12 @@ import 'timeline.dart';
 /// `<Polaroid>` from the component spec: loose photos of one day, stacked
 /// with a 6px offset, "×N" when there are several.
 class PolaroidStack extends StatelessWidget {
-  const PolaroidStack({super.key, required this.entry, required this.tape, this.onTap});
+  const PolaroidStack({
+    super.key,
+    required this.entry,
+    required this.tape,
+    this.onTap,
+  });
 
   final PhotoStackEntry entry;
 
@@ -23,12 +28,16 @@ class PolaroidStack extends StatelessWidget {
   static const _tail = 20.0;
 
   /// The title line is always one line, however long the title is.
-  static double heightFor(TextScaler textScaler) => _pad + (width - 2 * _pad) + 5 + textScaler.scale(15) + _tail;
+  static double heightFor(TextScaler textScaler) =>
+      _pad + (width - 2 * _pad) + 5 + textScaler.scale(15) + _tail;
 
   @override
   Widget build(BuildContext context) {
     final photos = entry.photos;
-    final caption = [?photos.first.title, if (photos.length > 1) '×${photos.length}'].join(' · ');
+    final caption = [
+      ?photos.first.title,
+      if (photos.length > 1) '×${photos.length}',
+    ].join(' · ');
     const backs = [(Offset(6, 8), -7.0), (Offset(-5, 12), 5.0)];
 
     return Semantics(
@@ -40,11 +49,15 @@ class PolaroidStack extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            for (final (offset, degrees) in backs.take(math.min(photos.length - 1, 2)).toList().reversed)
+            for (final (offset, degrees)
+                in backs.take(math.min(photos.length - 1, 2)).toList().reversed)
               Positioned.fill(
                 child: Transform.translate(
                   offset: offset,
-                  child: Transform.rotate(angle: degrees * math.pi / 180, child: _sheet(Shadows.paperSm)),
+                  child: Transform.rotate(
+                    angle: degrees * math.pi / 180,
+                    child: _sheet(Shadows.paperSm),
+                  ),
                 ),
               ),
             Positioned.fill(
@@ -52,7 +65,13 @@ class PolaroidStack extends StatelessWidget {
                 Shadows.paper,
                 child: Column(
                   children: [
-                    AspectRatio(aspectRatio: 1, child: Hero(tag: 'photo-${photos.first.id}', child: PhotoBox(url: photos.first.thumbUrl))),
+                    AspectRatio(
+                      aspectRatio: 1,
+                      child: Hero(
+                        tag: 'photo-${photos.first.id}',
+                        child: PhotoBox(url: photos.first.thumbUrl),
+                      ),
+                    ),
                     const SizedBox(height: 5),
                     Expanded(
                       child: Text(
@@ -60,7 +79,10 @@ class PolaroidStack extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: AppText.script.copyWith(fontSize: 12, height: 1.25),
+                        style: AppText.script.copyWith(
+                          fontSize: 12,
+                          height: 1.25,
+                        ),
                       ),
                     ),
                   ],
@@ -70,7 +92,15 @@ class PolaroidStack extends StatelessWidget {
             Positioned(
               top: -6,
               left: (width - 44) / 2,
-              child: FadeTransition(opacity: tape, child: Tape(color: entry.addedBy.color, width: 44, height: 13, degrees: -4)),
+              child: FadeTransition(
+                opacity: tape,
+                child: Tape(
+                  color: entry.addedBy.color,
+                  width: 44,
+                  height: 13,
+                  degrees: -4,
+                ),
+              ),
             ),
           ],
         ),
@@ -79,8 +109,8 @@ class PolaroidStack extends StatelessWidget {
   }
 
   Widget _sheet(List<BoxShadow> shadow, {Widget? child}) => Container(
-        padding: const EdgeInsets.fromLTRB(_pad, _pad, _pad, _tail),
-        decoration: BoxDecoration(color: Paper.polaroid, boxShadow: shadow),
-        child: child,
-      );
+    padding: const EdgeInsets.fromLTRB(_pad, _pad, _pad, _tail),
+    decoration: BoxDecoration(color: Paper.polaroid, boxShadow: shadow),
+    child: child,
+  );
 }

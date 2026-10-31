@@ -17,7 +17,8 @@ abstract final class AnniversaryDay {
   static double heartScale(double t) {
     final beat = _beats.transform(t);
     // Two beats: 1 → 1.08 → 1, twice.
-    return _pop.transform(t) * (1 + .08 * math.sin(beat * 2 * math.pi * 2).abs());
+    return _pop.transform(t) *
+        (1 + .08 * math.sin(beat * 2 * math.pi * 2).abs());
   }
 
   static double haloOpacity(double t) => .55 * _pop.transform(t).clamp(0, 1);

@@ -81,6 +81,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool get _isAnniversary =>
       widget.journal.anniversariesOn(DateTime.now()).isNotEmpty;
 
+  /// "Xem từ đầu": the page starts at the pot with the stem shrunk to
+  /// nothing; swiping up grows it back ([_tip] is its top) and every branch
+  /// sprouts again in order. At the top the bud opens slowly with the heart.
+  var _replay = false;
+  var _replayEnding = false;
+  var _heartAfterReplay = false;
+  final _tip = ValueNotifier(double.infinity);
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +98,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           _scroll.offset >
           TimelineMetrics.flowerY + TimelineMetrics.flowerSize / 2,
     );
+    _scroll.addListener(_followReplay);
     _bloom.forward();
     if (_isAnniversary) _celebrate.forward();
     // Card heights are measured with the real title font; lay out again
@@ -121,7 +130,50 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _plusIn.dispose();
     _bloom.dispose();
     _celebrate.dispose();
+    _tip.dispose();
     super.dispose();
+  }
+
+  void _startReplay() {
+    setState(() {
+      _replay = true;
+      _replayEnding = false;
+      _heartAfterReplay = false;
+    });
+    _tip.value = double.infinity;
+    _bloom.value = .1; // a closed bud
+    _celebrate.value = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      _followReplay();
+    });
+  }
+
+  /// The stem's top follows 60% down the screen, and only ever grows.
+  void _followReplay() {
+    if (!_replay || _replayEnding || !_scroll.hasClients) return;
+    final pos = _scroll.position;
+    final tip = pos.pixels + pos.viewportDimension * .6;
+    if (tip < _tip.value) _tip.value = tip;
+    if (pos.pixels <= 0) _finishReplay();
+  }
+
+  Future<void> _finishReplay() async {
+    _replayEnding = true;
+    _tip.value = TimelineMetrics.flowerY;
+    setState(() => _heartAfterReplay = true);
+    _celebrate.forward(from: 0);
+    _bloom.duration = Motion.dur4; // the slow bloom
+    await _bloom.forward(from: .1);
+    _bloom.duration = SakuraFlower.openDuration;
+    if (mounted) setState(() => _replay = false);
+  }
+
+  void _stopReplay() {
+    setState(() => _replay = false);
+    _tip.value = TimelineMetrics.flowerY;
+    _bloom.value = 1;
   }
 
   /// "Lưu lại hôm nay": a new moment dated today, its anniversary picked.
@@ -183,11 +235,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   Future<void> _openProfileMenu(BuildContext button) async {
     final choice = await _menuAt(button, const [
+      PopupMenuItem(value: 'replay', child: Text('Xem từ đầu')),
       PopupMenuItem(value: 'avatar', child: Text('Đổi ảnh đại diện')),
       PopupMenuItem(value: 'trash', child: Text('Thùng giấy')),
       PopupMenuItem(value: 'sign-out', child: Text('Đăng xuất')),
     ]);
     switch (choice) {
+      case 'replay':
+        _startReplay();
       case 'avatar':
         await _changeAvatar();
       case 'trash':
@@ -241,15 +296,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final upcoming = journal.upcoming(today);
     final safe = MediaQuery.paddingOf(context);
     final textScaler = MediaQuery.textScalerOf(context);
-    final celebrating = _isAnniversary;
+    final celebrating = _isAnniversary || _heartAfterReplay;
 
     return Scaffold(
       floatingActionButton: ValueListenableBuilder(
         valueListenable: _plusFloating,
         builder: (context, floating, child) => IgnorePointer(
-          ignoring: !floating,
+          ignoring: !floating || _replay,
           child: AnimatedScale(
-            scale: floating ? 1 : 0,
+            scale: floating && !_replay ? 1 : 0,
             duration: Motion.dur2,
             curve: Motion.easePaper,
             child: child,
@@ -283,8 +338,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       children: [
                         ..._paperGlow(m.stemX),
                         Positioned.fill(
-                          child: CustomPaint(painter: StemPainter(layout)),
+                          child: CustomPaint(
+                            painter: StemPainter(
+                              layout,
+                              tip: _replay ? _tip : null,
+                            ),
+                          ),
                         ),
+                        if (_replay)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: layout.stemBottom - 150,
+                            child: _SwipeUpHint(
+                              tip: _tip,
+                              from: layout.stemBottom - 150,
+                            ),
+                          ),
                         for (final marker in layout.markers)
                           Positioned(
                             left: m.stemX + 10,
@@ -294,9 +364,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           ),
                         for (final p in layout.placed)
                           Sprout(
-                            key: ValueKey(p.entry.id),
+                            // A fresh one per mode: in a replay every item
+                            // waits for the stem again.
+                            key: ValueKey((p.entry.id, _replay)),
                             placed: p,
                             scroll: _scroll,
+                            stemTip: _replay ? _tip : null,
                             builder: (context, tape) => switch (p.entry) {
                               final MomentEntry e => MomentCard(
                                 entry: e,
@@ -372,18 +445,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               ),
                             ),
                           ),
-                        Positioned(
-                          left: m.stemX - 24,
-                          top: fy - 24,
-                          child: FadeTransition(
-                            opacity: _plusIn,
-                            child: _PlusButton(
-                              size: 28,
-                              color: Sakura.c6,
-                              onPressed: _openAddMenu,
+                        if (!_replay)
+                          Positioned(
+                            left: m.stemX - 24,
+                            top: fy - 24,
+                            child: FadeTransition(
+                              opacity: _plusIn,
+                              child: _PlusButton(
+                                size: 28,
+                                color: Sakura.c6,
+                                onPressed: _openAddMenu,
+                              ),
                             ),
                           ),
-                        ),
                         if (upcoming != null)
                           Positioned(
                             left: m.stemX + 20,
@@ -419,6 +493,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               );
             },
           ),
+          if (_replay)
+            Positioned(
+              top: safe.top + 12,
+              right: 16,
+              child: IconButton(
+                tooltip: 'Thoát xem từ đầu',
+                onPressed: _stopReplay,
+                style: IconButton.styleFrom(
+                  backgroundColor: Paper.c1,
+                  side: const BorderSide(color: Paper.c5),
+                  fixedSize: const Size.square(44),
+                ),
+                icon: const Icon(Icons.close, size: 18, color: Paper.c8),
+              ),
+            ),
           // Confetti falls across the screen, not the scrolling page.
           if (celebrating && !MediaQuery.disableAnimationsOf(context))
             Positioned.fill(
@@ -652,6 +741,32 @@ class _UpcomingNote extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "vuốt lên nhó" over the pot, until the stem has grown past it.
+class _SwipeUpHint extends StatelessWidget {
+  const _SwipeUpHint({required this.tip, required this.from});
+
+  final ValueListenable<double> tip;
+  final double from;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: tip,
+      builder: (context, y, child) => AnimatedOpacity(
+        opacity: y > from ? 1 : 0,
+        duration: Motion.dur2,
+        child: child,
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.keyboard_double_arrow_up, color: Sakura.c7),
+          Text('vuốt lên nhó', style: AppText.script.copyWith(fontSize: 20)),
+        ],
       ),
     );
   }

@@ -37,7 +37,8 @@ class TimelineMetrics {
   double get cardWidth => math.min(columnWidth, 220);
 
   /// Left edge of an item [itemWidth] wide on [side].
-  double leftOf(Side side, double itemWidth) => side == Side.right ? stemX + gap : stemX - gap - itemWidth;
+  double leftOf(Side side, double itemWidth) =>
+      side == Side.right ? stemX + gap : stemX - gap - itemWidth;
 
   /// Each segment has its control points at a third and two thirds of its
   /// height, so y is linear in t and the stem's x at any y is exact.
@@ -49,7 +50,14 @@ class TimelineMetrics {
   Path stemPath(double bottom) {
     final path = Path()..moveTo(stemX, flowerY);
     for (var y = flowerY; y < bottom; y += segment) {
-      path.cubicTo(stemX + 8, y + segment / 3, stemX - 8, y + segment * 2 / 3, stemX, y + segment);
+      path.cubicTo(
+        stemX + 8,
+        y + segment / 3,
+        stemX - 8,
+        y + segment * 2 / 3,
+        stemX,
+        y + segment,
+      );
     }
     return path;
   }
@@ -80,7 +88,11 @@ class PlacedEntry {
 }
 
 class MonthMarker {
-  const MonthMarker({required this.month, required this.y, required this.newYear});
+  const MonthMarker({
+    required this.month,
+    required this.y,
+    required this.newYear,
+  });
 
   final DateTime month;
   final double y;
@@ -90,7 +102,12 @@ class MonthMarker {
 }
 
 class TimelineLayout {
-  const TimelineLayout({required this.metrics, required this.placed, required this.markers, required this.stemBottom});
+  const TimelineLayout({
+    required this.metrics,
+    required this.placed,
+    required this.markers,
+    required this.stemBottom,
+  });
 
   final TimelineMetrics metrics;
   final List<PlacedEntry> placed;
@@ -123,8 +140,12 @@ TimelineLayout layoutTimeline(
   required TextStyle momentTitleStyle,
 }) {
   final m = TimelineMetrics(width);
-  const belowFlower = TimelineMetrics.flowerY + TimelineMetrics.flowerSize / 2 + 27;
-  final nextTop = {Side.left: belowFlower, Side.right: TimelineMetrics.noteTop + _noteHeight + _sideGap};
+  const belowFlower =
+      TimelineMetrics.flowerY + TimelineMetrics.flowerSize / 2 + 27;
+  final nextTop = {
+    Side.left: belowFlower,
+    Side.right: TimelineMetrics.noteTop + _noteHeight + _sideGap,
+  };
   var lastBranchY = -double.infinity;
   final placed = <PlacedEntry>[];
   final markers = <MonthMarker>[];
@@ -133,8 +154,14 @@ TimelineLayout layoutTimeline(
   for (final e in entries) {
     final eMonth = DateTime(e.date.year, e.date.month);
     if (month != null && eMonth != month) {
-      final y = [nextTop[Side.right]!, nextTop[Side.left]!, lastBranchY + 40].reduce(math.max);
-      markers.add(MonthMarker(month: eMonth, y: y, newYear: eMonth.year != month.year));
+      final y = [
+        nextTop[Side.right]!,
+        nextTop[Side.left]!,
+        lastBranchY + 40,
+      ].reduce(math.max);
+      markers.add(
+        MonthMarker(month: eMonth, y: y, newYear: eMonth.year != month.year),
+      );
       nextTop[Side.right] = nextTop[Side.left] = y + markerHeight + 16;
     }
     month = eMonth;
@@ -143,26 +170,45 @@ TimelineLayout layoutTimeline(
     final offset = _branchOffset(e);
     final top = math.max(nextTop[side]!, lastBranchY + branchSpacing - offset);
     final size = switch (e) {
-      MomentEntry() => Size(m.cardWidth, MomentCard.heightFor(e, width: m.cardWidth, textScaler: textScaler, titleStyle: momentTitleStyle)),
-      PhotoStackEntry() => Size(PolaroidStack.width, PolaroidStack.heightFor(textScaler)),
+      MomentEntry() => Size(
+        m.cardWidth,
+        MomentCard.heightFor(
+          e,
+          width: m.cardWidth,
+          textScaler: textScaler,
+          titleStyle: momentTitleStyle,
+        ),
+      ),
+      PhotoStackEntry() => Size(
+        PolaroidStack.width,
+        PolaroidStack.heightFor(textScaler),
+      ),
     };
     final left = m.leftOf(side, size.width);
     final branchY = top + offset;
 
-    placed.add(PlacedEntry(
-      entry: e,
-      side: side,
-      rect: Offset(left, top) & size,
-      branchStart: Offset(m.stemXAt(branchY), branchY),
-      rotation: _rotation(e),
-      leaves: _unit('${e.id}#') > .5 ? 2 : 1,
-    ));
+    placed.add(
+      PlacedEntry(
+        entry: e,
+        side: side,
+        rect: Offset(left, top) & size,
+        branchStart: Offset(m.stemXAt(branchY), branchY),
+        rotation: _rotation(e),
+        leaves: _unit('${e.id}#') > .5 ? 2 : 1,
+      ),
+    );
     nextTop[side] = top + size.height + _sideGap;
     lastBranchY = branchY;
   }
 
-  final contentBottom = [nextTop[Side.right]!, nextTop[Side.left]!, lastBranchY + branchSpacing].reduce(math.max);
-  final segments = ((contentBottom - TimelineMetrics.flowerY) / TimelineMetrics.segment).ceil();
+  final contentBottom = [
+    nextTop[Side.right]!,
+    nextTop[Side.left]!,
+    lastBranchY + branchSpacing,
+  ].reduce(math.max);
+  final segments =
+      ((contentBottom - TimelineMetrics.flowerY) / TimelineMetrics.segment)
+          .ceil();
   return TimelineLayout(
     metrics: m,
     placed: placed,
@@ -184,6 +230,7 @@ const _deg = math.pi / 180;
 
 /// Cards tilt −1.5°…1.5°, polaroids 3–6° either way.
 double _rotation(TimelineEntry e) => switch (e) {
-      MomentEntry() => (_unit(e.id) * 2 - 1) * 1.5 * _deg,
-      PhotoStackEntry() => (_unit('${e.id}~') > .5 ? 1 : -1) * (3 + _unit(e.id) * 3) * _deg,
-    };
+  MomentEntry() => (_unit(e.id) * 2 - 1) * 1.5 * _deg,
+  PhotoStackEntry() =>
+    (_unit('${e.id}~') > .5 ? 1 : -1) * (3 + _unit(e.id) * 3) * _deg,
+};
