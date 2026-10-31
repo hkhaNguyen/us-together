@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../add/add_moment_sheet.dart';
 import '../add/add_photos_sheet.dart';
 import '../add/sheet_frame.dart';
+import '../anniversaries/anniversaries_page.dart';
 import '../data/journal_store.dart';
 import '../data/models.dart';
 import '../data/vi_format.dart';
@@ -116,6 +117,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
 
+  void _openAnniversaries() => _open(AnniversariesPage(session: widget.session, store: widget.store));
+
   Future<void> _openProfileMenu(BuildContext button) async {
     final choice = await _menuAt(button, const [PopupMenuItem(value: 'sign-out', child: Text('Đăng xuất'))]);
     if (choice == 'sign-out') await widget.onSignOut();
@@ -205,6 +208,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       child: _UpcomingNote(
                         title: upcoming.anniversary.titleOn(today.add(Duration(days: upcoming.days))),
                         days: upcoming.days,
+                        onTap: _openAnniversaries,
                       ),
                     ),
                   Positioned(
@@ -216,6 +220,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       days: journal.daysTogether(today),
                       me: me,
                       onPickStartDate: _pickStartDate,
+                      onCalendar: _openAnniversaries,
                       onProfile: _openProfileMenu,
                     ),
                   ),
@@ -230,7 +235,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.today, required this.days, required this.me, required this.onPickStartDate, required this.onProfile});
+  const _Header({
+    required this.today,
+    required this.days,
+    required this.me,
+    required this.onPickStartDate,
+    required this.onCalendar,
+    required this.onProfile,
+  });
 
   final DateTime today;
 
@@ -238,6 +250,7 @@ class _Header extends StatelessWidget {
   final int? days;
   final Person me;
   final VoidCallback onPickStartDate;
+  final VoidCallback onCalendar;
   final ValueChanged<BuildContext> onProfile;
 
   @override
@@ -276,6 +289,18 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
+        IconButton(
+          tooltip: 'Ngày kỷ niệm',
+          onPressed: onCalendar,
+          style: IconButton.styleFrom(
+            fixedSize: const Size.square(44),
+            backgroundColor: Paper.c1,
+            side: const BorderSide(color: Paper.c5),
+            padding: EdgeInsets.zero,
+          ),
+          icon: const Icon(Icons.event_outlined, size: 18, color: Paper.c8),
+        ),
+        const SizedBox(width: Space.s2),
         Builder(
           builder: (button) => IconButton(
             tooltip: 'Trang cá nhân',
@@ -346,27 +371,34 @@ class _AddChoice extends StatelessWidget {
 }
 
 class _UpcomingNote extends StatelessWidget {
-  const _UpcomingNote({required this.title, required this.days});
+  const _UpcomingNote({required this.title, required this.days, required this.onTap});
 
   final String title;
   final int days;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final isToday = days == 0;
     return Transform.rotate(
       angle: 2 * math.pi / 180,
-      child: Container(
-        width: 140,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(color: Paper.c1, borderRadius: BorderRadius.circular(Radii.tape), boxShadow: Shadows.paperSm),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(isToday ? 'HÔM NAY LÀ' : 'SẮP TỚI', style: AppText.label.copyWith(fontSize: 10, letterSpacing: 1)),
-            Text(title, style: AppText.title.copyWith(fontSize: 13)),
-            if (!isToday) Text('còn $days ngày', style: AppText.script.copyWith(fontSize: 15)),
-          ],
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 140,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: Paper.c1, borderRadius: BorderRadius.circular(Radii.tape), boxShadow: Shadows.paperSm),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(isToday ? 'HÔM NAY LÀ' : 'SẮP TỚI', style: AppText.label.copyWith(fontSize: 10, letterSpacing: 1)),
+                Text(title, style: AppText.title.copyWith(fontSize: 13)),
+                if (!isToday) Text('còn $days ngày', style: AppText.script.copyWith(fontSize: 15)),
+              ],
+            ),
+          ),
         ),
       ),
     );

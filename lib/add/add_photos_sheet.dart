@@ -35,7 +35,9 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
     super.initState();
     // Browsers only open a file dialog from a real tap, so on the web the
     // picker waits for the button.
-    if (!kIsWeb) WidgetsBinding.instance.addPostFrameCallback((_) => _pick(closeIfNone: true));
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _pick(closeIfNone: true));
+    }
   }
 
   @override
@@ -99,27 +101,37 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
       title: 'Thêm ảnh',
       action: 'Dán lên',
       onAction: _photos.isEmpty || _picking ? null : _save,
-      status: busy ? 'đang dán ${uploaded < _photos.length ? uploaded + 1 : _photos.length}/${_photos.length}…' : null,
+      status: busy
+          ? 'đang dán ${uploaded < _photos.length ? uploaded + 1 : _photos.length}/${_photos.length}…'
+          : null,
       error: _error,
       children: [
-        LayoutBuilder(builder: (context, box) {
-          const gap = Space.s2;
-          final size = (box.maxWidth - 3 * gap) / 4;
-          return Wrap(
-            spacing: gap,
-            runSpacing: gap,
-            children: [
-              AddPhotoTile(busy: _picking, onTap: busy ? null : _pick, size: size),
-              for (final p in _photos)
-                PickedPhotoTile(
-                  key: ObjectKey(p),
-                  photo: p,
+        LayoutBuilder(
+          builder: (context, box) {
+            const gap = Space.s2;
+            final size = (box.maxWidth - 3 * gap) / 4;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                AddPhotoTile(
+                  busy: _picking,
+                  onTap: busy ? null : _pick,
                   size: size,
-                  onRemove: busy ? null : () => setState(() => _photos.remove(p)),
                 ),
-            ],
-          );
-        }),
+                for (final p in _photos)
+                  PickedPhotoTile(
+                    key: ObjectKey(p),
+                    photo: p,
+                    size: size,
+                    onRemove: busy
+                        ? null
+                        : () => setState(() => _photos.remove(p)),
+                  ),
+              ],
+            );
+          },
+        ),
         const SizedBox(height: Space.s4),
         const FieldLabel('ngày chụp'),
         IgnorePointer(
@@ -142,7 +154,7 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
           maxLines: 4,
           textCapitalization: TextCapitalization.sentences,
           style: AppText.script.copyWith(fontSize: 18),
-          decoration: const InputDecoration(hintText: 'tiêu đề cho xấp ảnh này — viết gì cũng được…'),
+          decoration: const InputDecoration(hintText: 'chỗ này để title ạaaa'),
         ),
       ],
     );

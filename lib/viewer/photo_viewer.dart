@@ -168,21 +168,18 @@ class _PhotoViewerState extends State<PhotoViewer> {
                   ),
                 ),
                 Expanded(
-                  child: GestureDetector(
-                    // Swipe down to close, unless zoomed in (then it pans).
-                    onVerticalDragEnd: (d) {
-                      if (!_zoomed && (d.primaryVelocity ?? 0) > 600) Navigator.pop(context);
-                    },
-                    child: PageView.builder(
-                      controller: _pages,
-                      physics: _zoomed ? const NeverScrollableScrollPhysics() : const PageScrollPhysics(),
-                      itemCount: photos.length,
-                      onPageChanged: (i) => setState(() => _index = i),
-                      itemBuilder: (context, i) => _Polaroid(
-                        photo: photos[i],
-                        tapeColor: journal.person(photos[i].addedBy).color,
-                        onZoomed: (z) => setState(() => _zoomed = z),
-                      ),
+                  // Swipe up/down through the photos; while zoomed in, a drag
+                  // pans the photo instead.
+                  child: PageView.builder(
+                    controller: _pages,
+                    scrollDirection: Axis.vertical,
+                    physics: _zoomed ? const NeverScrollableScrollPhysics() : const PageScrollPhysics(),
+                    itemCount: photos.length,
+                    onPageChanged: (i) => setState(() => _index = i),
+                    itemBuilder: (context, i) => _Polaroid(
+                      photo: photos[i],
+                      tapeColor: journal.person(photos[i].addedBy).color,
+                      onZoomed: (z) => setState(() => _zoomed = z),
                     ),
                   ),
                 ),
@@ -203,7 +200,6 @@ class _PhotoViewerState extends State<PhotoViewer> {
                               style: AppText.body.copyWith(fontSize: 12, color: Paper.c5),
                             ),
                           ),
-                          if (photos.length > 1 && photos.length <= 12) _Dots(count: photos.length, index: index),
                         ],
                       ),
                       const SizedBox(height: Space.s3),
@@ -255,9 +251,11 @@ class _PolaroidState extends State<_Polaroid> {
     final title = p.title ?? '';
     return LayoutBuilder(builder: (context, box) {
       // Fit the photo plus the polaroid's frame and title into the space.
-      final titleSpace = title.isEmpty ? 36.0 : 96.0;
-      final maxW = math.min(box.maxWidth - 40, 480.0);
-      final maxH = box.maxHeight - 24 - 24 - titleSpace;
+      // As large as the screen allows; the cap only keeps it sane on a big
+      // monitor.
+      final titleSpace = title.isEmpty ? 28.0 : 76.0;
+      final maxW = math.min(box.maxWidth - 32, 1100.0);
+      final maxH = box.maxHeight - 16 - 24 - titleSpace;
       final w = math.max(80.0, math.min(maxW - 24, maxH * p.aspectRatio));
 
       return Center(
@@ -328,29 +326,6 @@ class _PolaroidState extends State<_Polaroid> {
         ),
       );
     });
-  }
-}
-
-class _Dots extends StatelessWidget {
-  const _Dots({required this.count, required this.index});
-
-  final int count;
-  final int index;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var i = 0; i < count; i++)
-          AnimatedContainer(
-            duration: Motion.dur1,
-            margin: const EdgeInsets.only(left: 4),
-            width: i == index ? 16 : 6,
-            height: 6,
-            decoration: BoxDecoration(color: i == index ? Paper.c1 : Paper.c7, borderRadius: BorderRadius.circular(3)),
-          ),
-      ],
-    );
   }
 }
 

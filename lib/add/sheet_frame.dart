@@ -193,11 +193,14 @@ class PickedPhotoTile extends StatelessWidget {
 
 /// A date in script that opens the picker when tapped.
 class DateField extends StatelessWidget {
-  const DateField({super.key, required this.date, required this.onChanged, this.label = 'ngày'});
+  const DateField({super.key, required this.date, required this.onChanged, this.label = 'ngày', this.allowFuture = false});
 
   final DateTime date;
   final ValueChanged<DateTime> onChanged;
   final String label;
+
+  /// Photos and moments can't be dated ahead; an anniversary can.
+  final bool allowFuture;
 
   @override
   Widget build(BuildContext context) {
@@ -210,8 +213,8 @@ class DateField extends StatelessWidget {
           final picked = await showDatePicker(
             context: context,
             initialDate: date,
-            firstDate: DateTime(1990),
-            lastDate: DateTime.now(),
+            firstDate: DateTime(1900),
+            lastDate: allowFuture ? DateTime(DateTime.now().year + 10) : DateTime.now(),
             helpText: label,
           );
           // Keep the time of day, so same-day photos stay in shooting order.

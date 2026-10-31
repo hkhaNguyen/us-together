@@ -64,6 +64,16 @@ class JournalStore {
         'isStart': true,
       });
 
+  /// Adds an anniversary, or updates the one with [id].
+  Future<void> saveAnniversary({String? id, required String title, required DateTime date, required bool yearly}) {
+    final fields = {'title': title.trim(), 'date': Timestamp.fromDate(date), 'yearly': yearly};
+    final anniversaries = _db.collection('anniversaries');
+    return id == null ? anniversaries.add(fields) : anniversaries.doc(id).update(fields);
+  }
+
+  /// Moments tied to it keep their photos and story; they just lose the tag.
+  Future<void> deleteAnniversary(String id) => _db.collection('anniversaries').doc(id).delete();
+
   /// One go of loose photos: a single stack on the stem sharing [date] and
   /// [title]. Each keeps its own time of day so they stay in shooting order.
   /// [onProgress] gets the number uploaded so far.
