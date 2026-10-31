@@ -4,4 +4,6 @@
     <color name="ic_launcher_background">#F3E4DB</color>
     <!-- Same paper behind the splash and the Flutter view, light or dark mode. -->
     <color name="paper">#F3E4DB</color>
+    <!-- sakura-6: tints the notification icon. -->
+    <color name="sakura">#D23B74</color>
 </resources>

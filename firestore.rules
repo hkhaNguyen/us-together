@@ -41,5 +41,18 @@ service cloud.firestore {
       allow read, write: if isMember()
         && collection in ['moments', 'photos', 'anniversaries'];
     }
+
+    // Push tokens: each of them files their own devices; only the
+    // functions (admin) ever read them.
+    match /tokens/{token} {
+      allow create, update: if isMember() && request.resource.data.person == me();
+      allow delete: if isMember() && resource.data.person == me();
+    }
+
+    // "Tell the other one": written alongside the change itself, read and
+    // removed by the functions.
+    match /activity/{id} {
+      allow create: if isMember() && request.resource.data.by == me();
+    }
   }
 }

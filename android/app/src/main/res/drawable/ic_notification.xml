@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon: the app's five petals as one white silhouette. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group android:pivotX="12" android:pivotY="12" android:rotation="0">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M12,12C9.28,10.88 8.32,6.88 10.24,4.32C10.96,3.36 11.6,3.68 12,4.96C12.4,3.68 13.04,3.36 13.76,4.32C15.68,6.88 14.72,10.88 12,12Z" />
+    </group>
+    <group android:pivotX="12" android:pivotY="12" android:rotation="72">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M12,12C9.28,10.88 8.32,6.88 10.24,4.32C10.96,3.36 11.6,3.68 12,4.96C12.4,3.68 13.04,3.36 13.76,4.32C15.68,6.88 14.72,10.88 12,12Z" />
+    </group>
+    <group android:pivotX="12" android:pivotY="12" android:rotation="144">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M12,12C9.28,10.88 8.32,6.88 10.24,4.32C10.96,3.36 11.6,3.68 12,4.96C12.4,3.68 13.04,3.36 13.76,4.32C15.68,6.88 14.72,10.88 12,12Z" />
+    </group>
+    <group android:pivotX="12" android:pivotY="12" android:rotation="216">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M12,12C9.28,10.88 8.32,6.88 10.24,4.32C10.96,3.36 11.6,3.68 12,4.96C12.4,3.68 13.04,3.36 13.76,4.32C15.68,6.88 14.72,10.88 12,12Z" />
+    </group>
+    <group android:pivotX="12" android:pivotY="12" android:rotation="288">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M12,12C9.28,10.88 8.32,6.88 10.24,4.32C10.96,3.36 11.6,3.68 12,4.96C12.4,3.68 13.04,3.36 13.76,4.32C15.68,6.88 14.72,10.88 12,12Z" />
+    </group>
+</vector>

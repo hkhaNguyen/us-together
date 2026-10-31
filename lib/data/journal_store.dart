@@ -22,6 +22,9 @@ typedef Session = ({Journal journal, String me});
 ///                        w, h, createdAt — files under photos/{id}/ in Storage
 ///   entries/{id}         momentId, author, text, createdAt
 ///   anniversaries/{id}   title, date, yearly, isStart
+///   tokens/{fcmToken}    person, platform, updatedAt — where to reach a device
+///   activity/{id}        type, by, … — one per thing worth telling the other
+///                        about; functions/ sends the notification and deletes it
 class JournalStore {
   JournalStore(this._db, this._uploader);
 
@@ -103,6 +106,7 @@ class JournalStore {
       title: title,
       onProgress: onProgress,
     );
+    _activity(batch, 'photos', by, {'count': ids.length, 'title': title.trim()});
     await batch.commit();
     return ids;
   }
@@ -131,6 +135,7 @@ class JournalStore {
       'anniversaryId': anniversaryId,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    _activity(batch, 'moment', by, {'momentId': moment.id, 'title': title});
     await batch.commit();
   }
 
@@ -162,13 +167,36 @@ class JournalStore {
       'coverPhotoId': ids.isEmpty ? null : ids[cover],
       'anniversaryId': anniversaryId,
     });
+    if (added.isNotEmpty) {
+      _activity(batch, 'moment-photos', by, {'momentId': moment.id, 'count': added.length, 'title': title});
+    }
     await batch.commit();
   }
+
+  /// Queues a notification for the other one; see functions/index.js.
+  void _activity(WriteBatch batch, String type, String by, Map<String, Object?> details) =>
+      batch.set(_db.collection('activity').doc(), {
+        ...details,
+        'type': type,
+        'by': by,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+  /// Files this device's push token under [person], moving it if the device
+  /// changed hands.
+  Future<void> saveToken(String token, {required String person, required String platform}) =>
+      _db.collection('tokens').doc(token).set({
+        'person': person,
+        'platform': platform,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+  /// On sign-out: this device stops getting the other one's news.
+  Future<void> forgetToken(String token) => _db.collection('tokens').doc(token).delete();
 
   DocumentReference<Map<String, dynamic>> _photo(String id) => _db.collection('photos').doc(id);
   DocumentReference<Map<String, dynamic>> _moment(String id) => _db.collection('moments').doc(id);
 
-  /// Titles belong to a whole stack, so all of [photoIds] change together.
   /// [coverId] goes on top of the stack made of [photoIds]; the rest lose
   /// the mark.
   Future<void> setStackCover(List<String> photoIds, String coverId) {
@@ -179,6 +207,7 @@ class JournalStore {
     return batch.commit();
   }
 
+  /// Titles belong to a whole stack, so all of [photoIds] change together.
   Future<void> setTitle(List<String> photoIds, String title) {
     final value = title.trim().isEmpty ? null : title.trim();
     final batch = _db.batch();
@@ -213,12 +242,17 @@ class JournalStore {
 
   /// Client time, not a server timestamp: the bubble needs a date the moment
   /// it appears.
-  Future<void> addEntry(String momentId, String text, {required String by}) => _db.collection('entries').add({
+  Future<void> addEntry(String momentId, String text, {required String by}) {
+    final batch = _db.batch()
+      ..set(_db.collection('entries').doc(), {
         'momentId': momentId,
         'author': by,
         'text': text.trim(),
         'createdAt': Timestamp.now(),
       });
+    _activity(batch, 'entry', by, {'momentId': momentId, 'text': text.trim()});
+    return batch.commit();
+  }
 
   Future<void> updateEntry(String entryId, String text) => _db.collection('entries').doc(entryId).update({'text': text.trim()});
 
