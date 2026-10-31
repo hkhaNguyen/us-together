@@ -41,7 +41,8 @@ class MomentEntry extends TimelineEntry {
 class PhotoStackEntry extends TimelineEntry {
   const PhotoStackEntry({required this.photos, required this.addedBy});
 
-  /// Newest first; the first one is on top of the stack.
+  /// Newest first, except the chosen cover leads; the first one is on top
+  /// of the stack. A stack's photos all share one day.
   final List<Photo> photos;
   final Person addedBy;
 
@@ -87,6 +88,8 @@ List<TimelineEntry> buildTimeline(Journal journal) {
   }
   for (final photos in stacks.values) {
     photos.sort((a, b) => b.takenAt.compareTo(a.takenAt));
+    final cover = photos.indexWhere((p) => p.isStackCover);
+    if (cover > 0) photos.insert(0, photos.removeAt(cover));
     entries.add(
       PhotoStackEntry(
         photos: photos,

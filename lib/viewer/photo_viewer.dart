@@ -107,6 +107,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
     final stack = _stackOf(journal, photo);
     return [
       if (moment == null) const PopupMenuItem(value: 'add', child: Text('Thêm ảnh vào xấp')),
+      if (stack.length > 1 && !photo.isStackCover) const PopupMenuItem(value: 'stack-cover', child: Text('Đặt làm bìa xấp')),
       if (moment != null && moment.coverPhotoId != photo.id) const PopupMenuItem(value: 'cover', child: Text('Đặt làm bìa kỷ niệm')),
       if (moment != null) const PopupMenuItem(value: 'detach', child: Text('Gỡ khỏi kỷ niệm (về thân hoa)')),
       // Only whoever added a photo can throw it away.
@@ -131,6 +132,9 @@ class _PhotoViewerState extends State<PhotoViewer> {
         if (added == null || added.isEmpty || !mounted) return;
         setState(() => _ids.addAll(added));
         _say('đã thêm ${added.length} ảnh vào xấp');
+      case 'stack-cover':
+        await widget.store.setStackCover([for (final p in _stackOf(journal, photo)) p.id], photo.id);
+        _say('đã đặt làm bìa xấp');
       case 'cover':
         await widget.store.setCover(moment!.id, photo.id);
         _say('đã đặt làm bìa');

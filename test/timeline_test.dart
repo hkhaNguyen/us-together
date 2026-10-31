@@ -74,6 +74,24 @@ void main() {
       expect(sizes, [1, 2, 2]);
     });
 
+    test('a stack shows newest on top unless a cover was picked', () {
+      final day = DateTime(2026, 5, 1);
+      Photo p(String id, int hour, {bool cover = false}) =>
+          Photo(id: id, takenAt: day.add(Duration(hours: hour)), addedBy: 'hkha', stackId: 's', isStackCover: cover);
+      List<String> order(List<Photo> photos) => [
+            for (final p in buildTimeline(Journal(
+              people: journal.people,
+              moments: const [],
+              photos: photos,
+              entries: const [],
+              anniversaries: const [],
+            )).whereType<PhotoStackEntry>().single.photos)
+              p.id,
+          ];
+      expect(order([p('a', 9), p('b', 11), p('c', 10)]), ['b', 'c', 'a']);
+      expect(order([p('a', 9, cover: true), p('b', 11), p('c', 10)]), ['a', 'b', 'c']);
+    });
+
     TimelineLayout lay(double width, [double scale = 1]) =>
         layoutTimeline(entries, width, textScaler: TextScaler.linear(scale), momentTitleStyle: titleStyle);
 

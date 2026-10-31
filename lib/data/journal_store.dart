@@ -18,7 +18,7 @@ typedef Session = ({Journal journal, String me});
 ///                        list for the rules; several emails per person
 ///   moments/{id}         date, title, body, photoIds, coverPhotoId, addedBy,
 ///                        anniversaryId, createdAt
-///   photos/{id}          takenAt, addedBy, title, stackId, momentId, thumbUrl, fullUrl,
+///   photos/{id}          takenAt, addedBy, title, stackId, stackCover, momentId, thumbUrl, fullUrl,
 ///                        w, h, createdAt — files under photos/{id}/ in Storage
 ///   entries/{id}         momentId, author, text, createdAt
 ///   anniversaries/{id}   title, date, yearly, isStart
@@ -169,6 +169,16 @@ class JournalStore {
   DocumentReference<Map<String, dynamic>> _moment(String id) => _db.collection('moments').doc(id);
 
   /// Titles belong to a whole stack, so all of [photoIds] change together.
+  /// [coverId] goes on top of the stack made of [photoIds]; the rest lose
+  /// the mark.
+  Future<void> setStackCover(List<String> photoIds, String coverId) {
+    final batch = _db.batch();
+    for (final id in photoIds) {
+      batch.update(_photo(id), {'stackCover': id == coverId});
+    }
+    return batch.commit();
+  }
+
   Future<void> setTitle(List<String> photoIds, String title) {
     final value = title.trim().isEmpty ? null : title.trim();
     final batch = _db.batch();
@@ -377,6 +387,7 @@ class JournalStore {
           title: d.data()['title'] as String?,
           momentId: d.data()['momentId'] as String?,
           stackId: d.data()['stackId'] as String?,
+          isStackCover: d.data()['stackCover'] == true,
           trashed: trashed(d.data()),
         ),
     ];

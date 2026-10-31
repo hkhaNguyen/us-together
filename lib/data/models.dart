@@ -25,6 +25,7 @@ class Photo {
     this.aspectRatio = 1,
     this.title,
     this.stackId,
+    this.isStackCover = false,
     this.momentId,
     this.trashed,
   });
@@ -44,6 +45,9 @@ class Photo {
 
   /// Photos added in one go share this and hang as one stack.
   final String? stackId;
+
+  /// Picked to sit on top of its stack; otherwise the newest one does.
+  final bool isStackCover;
 
   /// null = a loose photo pinned on the stem.
   final String? momentId;
