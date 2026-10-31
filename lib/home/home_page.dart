@@ -17,6 +17,7 @@ import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../trash/trash_page.dart';
 import '../viewer/photo_viewer.dart';
+import '../widgets/avatar_cropper.dart';
 import '../widgets/paper_bits.dart';
 import '../widgets/sakura_flower.dart';
 import 'moment_card.dart';
@@ -145,7 +146,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(text)));
     try {
-      final bytes = await pickOnePhoto();
+      final picked = await pickOnePhoto();
+      if (picked == null || !mounted) return;
+      final bytes = await Navigator.push<Uint8List>(
+        context,
+        MaterialPageRoute(fullscreenDialog: true, builder: (_) => AvatarCropper(bytes: picked)),
+      );
       if (bytes == null) return;
       say('đang đổi ảnh đại diện…');
       await widget.store.setAvatar(widget.journal.person(widget.meId), bytes);

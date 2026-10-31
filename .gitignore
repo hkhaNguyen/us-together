@@ -46,3 +46,6 @@ app.*.map.json
 
 # brief & concept stay private
 docs/
+
+# Claude Code notes kept by tools, not part of the app
+CLAUDE.md

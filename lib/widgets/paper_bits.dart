@@ -81,11 +81,9 @@ class PersonAvatar extends StatelessWidget {
       width: size,
       height: size,
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: person.color,
-        shape: BoxShape.circle,
-        border: ring == null ? null : Border.fromBorderSide(ring!),
-      ),
+      decoration: BoxDecoration(color: person.color, shape: BoxShape.circle),
+      // Drawn over the picture, or the photo would cover the ring.
+      foregroundDecoration: ring == null ? null : BoxDecoration(shape: BoxShape.circle, border: Border.fromBorderSide(ring!)),
       child: person.avatarUrl == null
           ? (size < 24 ? null : initial)
           : Image.network(
