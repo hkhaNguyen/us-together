@@ -2,4 +2,6 @@
 <resources>
     <!-- paper-3 from the design tokens -->
     <color name="ic_launcher_background">#F3E4DB</color>
+    <!-- Same paper behind the splash and the Flutter view, light or dark mode. -->
+    <color name="paper">#F3E4DB</color>
 </resources>

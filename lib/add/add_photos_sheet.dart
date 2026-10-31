@@ -12,13 +12,15 @@ import 'sheet_frame.dart';
 /// the first photo's EXIF) and one title shared by every photo in it.
 ///
 /// Given [into], the photos join that photo's stack, taking its date and
-/// title, and the sheet pops with their ids.
+/// title, and the sheet pops with their ids. [initial] opens it with photos
+/// already in (shared from another app) instead of the picker.
 class AddPhotosSheet extends StatefulWidget {
-  const AddPhotosSheet({super.key, required this.store, required this.me, this.into});
+  const AddPhotosSheet({super.key, required this.store, required this.me, this.into, this.initial = const []});
 
   final JournalStore store;
   final String me;
   final Photo? into;
+  final List<PickedPhoto> initial;
 
   @override
   State<AddPhotosSheet> createState() => _AddPhotosSheetState();
@@ -38,6 +40,11 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
   @override
   void initState() {
     super.initState();
+    if (widget.initial.isNotEmpty) {
+      _photos.addAll(widget.initial);
+      if (widget.into == null) _date = _photos.first.takenAt;
+      return;
+    }
     // Browsers only open a file dialog from a real tap, so on the web the
     // picker waits for the button.
     if (!kIsWeb) {

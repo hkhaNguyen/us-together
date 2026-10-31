@@ -28,6 +28,11 @@ Future<Uint8List?> pickOnePhoto() async => (await ImagePicker().pickImage(source
 
 Future<PickedPhoto> _read(XFile file) async {
   final bytes = await file.readAsBytes();
+  return pickedFromBytes(bytes, fallback: () => file.lastModified());
+}
+
+/// A picked photo dated by its EXIF, else by [fallback], else now.
+Future<PickedPhoto> pickedFromBytes(Uint8List bytes, {Future<DateTime> Function()? fallback}) async {
   DateTime? taken;
   try {
     final tags = await readExifFromBytes(bytes);
@@ -35,14 +40,12 @@ Future<PickedPhoto> _read(XFile file) async {
   } catch (_) {
     // No or unreadable EXIF: fall back below.
   }
-  if (taken == null) {
+  if (taken == null && fallback != null) {
     try {
-      taken = await file.lastModified();
-    } catch (_) {
-      taken = DateTime.now();
-    }
+      taken = await fallback();
+    } catch (_) {}
   }
-  return PickedPhoto(bytes: bytes, takenAt: taken);
+  return PickedPhoto(bytes: bytes, takenAt: taken ?? DateTime.now());
 }
 
 /// "2024:10:30 18:22:01" → that local time; null if it isn't one.

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../add/add_moment_sheet.dart';
 import '../add/add_photos_sheet.dart';
 import '../add/photo_pipeline.dart';
+import '../add/shared_photos.dart';
 import '../add/sheet_frame.dart';
 import '../anniversaries/anniversaries_page.dart';
 import '../data/journal_store.dart';
@@ -113,6 +114,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     GoogleFonts.pendingFonts([MomentCard.titleStyle]).then((_) {
       if (mounted) setState(() {});
     });
+    // Photos shared from the gallery open straight in the add-photos sheet.
+    SharedPhotos.listen((photos) {
+      if (!mounted) return;
+      showPaperSheet(
+        context,
+        AddPhotosSheet(store: widget.store, me: widget.meId, initial: photos),
+      );
+    });
   }
 
   @override
@@ -132,6 +141,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    SharedPhotos.stop();
     _scroll.dispose();
     _plusFloating.dispose();
     _plusIn.dispose();
