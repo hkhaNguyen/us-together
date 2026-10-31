@@ -472,8 +472,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               child: _DaysFinale(
                                 animation: _finale,
                                 days: days,
-                                fromY: fy,
-                                toY: headerTop + 56,
+                                fromY: fy + 10,
+                                // Petal tips reach 14% into the flower's
+                                // box; rest just above them.
+                                toY: fy - TimelineMetrics.flowerSize * .36 - 10,
                                 centerX: m.stemX,
                               ),
                             ),
@@ -598,7 +600,9 @@ class _DaysFinale extends AnimatedWidget {
 
   final int days;
 
-  /// Centre heights: the flower's, and where it comes to rest.
+  /// Heights of its bottom edge: at the start, then at rest. It's anchored
+  /// by the bottom so that, however tall the text, it never ends up behind
+  /// the petals.
   final double fromY;
   final double toY;
   final double centerX;
@@ -633,18 +637,19 @@ class _DaysFinale extends AnimatedWidget {
           left: centerX,
           top: fromY + (toY - fromY) * rise,
           child: FractionalTranslation(
-            translation: const Offset(-.5, -.5),
+            translation: const Offset(-.5, -1),
             child: Opacity(
               opacity: _appear.transform(t) * (1 - leave),
               child: Transform.scale(
                 scale: (.2 + .8 * rise) * (1 - .1 * leave),
+                alignment: Alignment.bottomCenter,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       thousands(count),
                       style: AppText.display.copyWith(
-                        fontSize: 84,
+                        fontSize: 72,
                         height: 1,
                         shadows: const [Shadow(color: Pollen.c1, blurRadius: 28)],
                       ),
