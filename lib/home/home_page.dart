@@ -89,6 +89,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   var _heartAfterReplay = false;
   final _tip = ValueNotifier(double.infinity);
 
+  /// The replay's last beat: the day count rises from behind the flower,
+  /// stands big at the top, then hands back to the header.
+  late final _finale = AnimationController(
+    vsync: this,
+    duration: _DaysFinale.duration,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -131,6 +138,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _bloom.dispose();
     _celebrate.dispose();
     _tip.dispose();
+    _finale.dispose();
     super.dispose();
   }
 
@@ -143,6 +151,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _tip.value = double.infinity;
     _bloom.value = .1; // a closed bud
     _celebrate.value = 0;
+    _finale.reset();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
       _scroll.jumpTo(_scroll.position.maxScrollExtent);
@@ -164,6 +173,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _tip.value = TimelineMetrics.flowerY;
     setState(() => _heartAfterReplay = true);
     _celebrate.forward(from: 0);
+    if (widget.journal.daysTogether(DateTime.now()) != null &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      _finale.forward(from: 0);
+    }
     _bloom.duration = Motion.dur4; // the slow bloom
     await _bloom.forward(from: .1);
     _bloom.duration = SakuraFlower.openDuration;
@@ -171,6 +184,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   void _stopReplay() {
+    _finale.reset();
     setState(() => _replay = false);
     _tip.value = TimelineMetrics.flowerY;
     _bloom.value = 1;
@@ -297,6 +311,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final safe = MediaQuery.paddingOf(context);
     final textScaler = MediaQuery.textScalerOf(context);
     final celebrating = _isAnniversary || _heartAfterReplay;
+    final headerTop = math.max(52.0, safe.top + 12);
 
     return Scaffold(
       floatingActionButton: ValueListenableBuilder(
@@ -419,6 +434,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               ),
                             ),
                           ),
+                        // Under the flower, so it starts hidden behind the petals.
+                        if (journal.daysTogether(today) case final days?)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: 0,
+                            height: fy + half,
+                            child: IgnorePointer(
+                              child: _DaysFinale(
+                                animation: _finale,
+                                days: days,
+                                fromY: fy,
+                                toY: headerTop + 56,
+                                centerX: m.stemX,
+                              ),
+                            ),
+                          ),
                         Positioned(
                           left: m.stemX - half,
                           top: fy - half,
@@ -476,14 +508,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         Positioned(
                           left: 24,
                           right: 24,
-                          top: math.max(52, safe.top + 12),
-                          child: _Header(
-                            today: today,
-                            days: journal.daysTogether(today),
-                            me: me,
-                            onPickStartDate: _pickStartDate,
-                            onCalendar: _openAnniversaries,
-                            onProfile: _openProfileMenu,
+                          top: headerTop,
+                          // Steps aside while the finale holds the top.
+                          child: FadeTransition(
+                            opacity: _finale.drive(_DaysFinale.headerOpacity),
+                            child: _Header(
+                              today: today,
+                              days: journal.daysTogether(today),
+                              me: me,
+                              onPickStartDate: _pickStartDate,
+                              onCalendar: _openAnniversaries,
+                              onProfile: _openProfileMenu,
+                            ),
                           ),
                         ),
                       ],
@@ -517,6 +553,91 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// The end of "xem từ đầu": the day count grows out from behind the flower
+/// to the top of the screen, counting up, holds, then fades so the header
+/// can take over again.
+class _DaysFinale extends AnimatedWidget {
+  const _DaysFinale({
+    required Animation<double> animation,
+    required this.days,
+    required this.fromY,
+    required this.toY,
+    required this.centerX,
+  }) : super(listenable: animation);
+
+  final int days;
+
+  /// Centre heights: the flower's, and where it comes to rest.
+  final double fromY;
+  final double toY;
+  final double centerX;
+
+  static const duration = Duration(milliseconds: 5200);
+
+  // Slices of [duration]. The rise overshoots a little, like the petals.
+  static const _rise = Interval(.04, .34, curve: Motion.easeBloom);
+  static const _appear = Interval(.04, .14);
+  static const _count = Interval(.08, .5, curve: Curves.easeOutCubic);
+  static const _leave = Interval(.86, 1, curve: Motion.easePaper);
+
+  /// The header fades out as this rises and back in as this leaves.
+  static final headerOpacity = TweenSequence([
+    TweenSequenceItem(tween: ConstantTween(1.0), weight: 4),
+    TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 10),
+    TweenSequenceItem(tween: ConstantTween(0.0), weight: 72),
+    TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 14),
+  ]);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = (listenable as Animation<double>).value;
+    if (t == 0 || t == 1) return const SizedBox.shrink();
+    final rise = _rise.transform(t);
+    final leave = _leave.transform(t);
+    final count = (days * _count.transform(t)).round();
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: centerX,
+          top: fromY + (toY - fromY) * rise,
+          child: FractionalTranslation(
+            translation: const Offset(-.5, -.5),
+            child: Opacity(
+              opacity: _appear.transform(t) * (1 - leave),
+              child: Transform.scale(
+                scale: (.2 + .8 * rise) * (1 - .1 * leave),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      thousands(count),
+                      style: AppText.display.copyWith(
+                        fontSize: 84,
+                        height: 1,
+                        shadows: const [Shadow(color: Pollen.c1, blurRadius: 28)],
+                      ),
+                    ),
+                    const SizedBox(height: Space.s2),
+                    Text(
+                      'NGÀY BÊN NHAU',
+                      style: AppText.label.copyWith(
+                        fontSize: 14,
+                        letterSpacing: 14 * .3,
+                        color: Sakura.c6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
