@@ -1,12 +1,12 @@
 {
-    "name": "us_together",
-    "short_name": "us_together",
+    "name": "us-together",
+    "short_name": "us-together",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#F3E4DB",
+    "theme_color": "#F3E4DB",
+    "description": "Sổ ảnh và kỷ niệm của hai đứa",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
