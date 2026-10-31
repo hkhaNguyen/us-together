@@ -55,18 +55,24 @@ class MomentPage extends StatelessWidget {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                         children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: IconButton(
-                              tooltip: 'Về trang chủ',
-                              onPressed: () => Navigator.pop(context),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Paper.c1,
-                                side: const BorderSide(color: Paper.c5),
-                                fixedSize: const Size.square(44),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              IconButton(
+                                tooltip: 'Về trang chủ',
+                                onPressed: () => Navigator.pop(context),
+                                style: _roundButton,
+                                icon: const Icon(Icons.arrow_back, size: 18, color: Paper.c8),
                               ),
-                              icon: const Icon(Icons.arrow_back, size: 18, color: Paper.c8),
-                            ),
+                              // Only whoever made the moment can delete it.
+                              if (moment.addedBy == s.me)
+                                IconButton(
+                                  tooltip: 'Xoá kỷ niệm',
+                                  onPressed: () => _trashMoment(context, moment, photos.length, s.me),
+                                  style: _roundButton,
+                                  icon: const Icon(Icons.delete_outline, size: 18, color: Paper.c8),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: Space.s3),
                           Text(
@@ -115,6 +121,44 @@ class MomentPage extends StatelessWidget {
         );
       },
     );
+  }
+
+  static final _roundButton = IconButton.styleFrom(
+    backgroundColor: Paper.c1,
+    side: const BorderSide(color: Paper.c5),
+    fixedSize: const Size.square(44),
+  );
+
+  /// The design's three-way question: keep the photos on the stem, trash
+  /// them with it, or never mind.
+  Future<void> _trashMoment(BuildContext context, Moment moment, int photoCount, String me) async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Paper.c1,
+        title: Text('Xoá kỷ niệm này?', style: AppText.title.copyWith(fontSize: 18)),
+        content: Text(
+          'Kỷ niệm sẽ vào thùng giấy ${Trashed.keepDays} ngày, hai đứa đều khôi phục được.'
+          '${photoCount > 0 ? ' Còn $photoCount tấm ảnh trong đó thì sao?' : ''}',
+          style: AppText.body.copyWith(fontSize: 14),
+        ),
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: Space.s2,
+        actions: [
+          if (photoCount > 0)
+            OutlinedButton(onPressed: () => Navigator.pop(context, 'keep'), child: const Text('Giữ ảnh lại trên thân hoa')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, 'all'),
+            style: FilledButton.styleFrom(backgroundColor: Sakura.c7),
+            child: Text(photoCount > 0 ? 'Xoá cả kỷ niệm lẫn $photoCount ảnh' : 'Xoá'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Thôi, giữ lại')),
+        ],
+      ),
+    );
+    if (choice == null) return;
+    await store.trashMoment(moment, withPhotos: choice == 'all', by: me);
+    if (context.mounted) Navigator.pop(context);
   }
 
   Future<void> _photoActions(BuildContext context, Moment moment, Photo photo) async {
@@ -305,7 +349,7 @@ class _Bubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         textDirection: left ? TextDirection.ltr : TextDirection.rtl,
         children: [
-          _Avatar(person: author, size: 30),
+          PersonAvatar(person: author),
           const SizedBox(width: 10),
           Expanded(
             child: GestureDetector(
@@ -339,23 +383,6 @@ class _Bubble extends StatelessWidget {
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.person, required this.size});
-
-  final Person person;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: person.color, shape: BoxShape.circle),
-      child: Text(person.name.characters.first, style: AppText.body.copyWith(fontSize: 11, color: Paper.c1, fontWeight: FontWeight.w500)),
-    );
-  }
-}
 
 /// Fixed at the bottom; Ctrl+Enter sends on a keyboard.
 class _Composer extends StatefulWidget {
@@ -409,7 +436,7 @@ class _ComposerState extends State<_Composer> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Padding(padding: const EdgeInsets.only(bottom: 7), child: _Avatar(person: widget.me, size: 30)),
+          Padding(padding: const EdgeInsets.only(bottom: 7), child: PersonAvatar(person: widget.me)),
           const SizedBox(width: 10),
           Expanded(
             child: CallbackShortcuts(

@@ -5,11 +5,14 @@ import 'vi_format.dart';
 /// One of the two fixed profiles; everything else is shared and only records
 /// who added it.
 class Person {
-  const Person({required this.id, required this.name, required this.color});
+  const Person({required this.id, required this.name, required this.color, this.avatarUrl});
 
   final String id;
   final String name;
   final Color color;
+
+  /// Their own picture; until set, the initial on their colour.
+  final String? avatarUrl;
 }
 
 class Photo {
@@ -23,6 +26,7 @@ class Photo {
     this.title,
     this.stackId,
     this.momentId,
+    this.trashed,
   });
 
   final String id;
@@ -43,6 +47,25 @@ class Photo {
 
   /// null = a loose photo pinned on the stem.
   final String? momentId;
+
+  /// Set while it sits in the trash.
+  final Trashed? trashed;
+}
+
+/// When and by whom something went into the trash ("thùng giấy").
+class Trashed {
+  const Trashed({required this.at, required this.by, this.withMoment});
+
+  final DateTime at;
+  final String by;
+
+  /// A photo that went in along with this moment, and comes back with it.
+  final String? withMoment;
+
+  static const keepDays = 30;
+
+  /// Days before it's gone for good.
+  int daysLeft(DateTime today) => keepDays - daysBetween(at, today);
 }
 
 /// A moment ("kỷ niệm" in the app): photos + title + post.
@@ -56,6 +79,8 @@ class Moment {
     this.photoIds = const [],
     this.coverPhotoId,
     this.anniversaryId,
+    this.trashed,
+    this.keptPhotoIds = const [],
   });
 
   final String id;
@@ -66,6 +91,11 @@ class Moment {
   final List<String> photoIds;
   final String? coverPhotoId;
   final String? anniversaryId;
+  final Trashed? trashed;
+
+  /// Photos that went back on the stem when it was trashed; restoring the
+  /// moment takes back the ones still loose.
+  final List<String> keptPhotoIds;
 }
 
 /// A "cảm nghĩ" written under a moment.
@@ -106,11 +136,17 @@ class Journal {
     required this.photos,
     required this.entries,
     required this.anniversaries,
+    this.trashedMoments = const [],
+    this.trashedPhotos = const [],
   });
 
   final List<Person> people;
+
+  /// Live moments and photos only; trashed ones are kept apart below.
   final List<Moment> moments;
   final List<Photo> photos;
+  final List<Moment> trashedMoments;
+  final List<Photo> trashedPhotos;
   final List<Entry> entries;
   final List<Anniversary> anniversaries;
 
@@ -136,10 +172,14 @@ class Journal {
     return start == null ? null : daysBetween(start.date, today);
   }
 
-  /// The anniversary that falls on [day], if any.
-  Anniversary? anniversaryOn(DateTime day) => anniversaries
-      .where((a) => a.date.month == day.month && a.date.day == day.day && (a.yearly || a.date.year == day.year))
-      .firstOrNull;
+  /// Anniversaries that fall on [day]: yearly ones on its day and month, a
+  /// one-off only on its exact date. A moment can only belong to these.
+  List<Anniversary> anniversariesOn(DateTime day) => [
+        for (final a in anniversaries)
+          if (a.date.month == day.month && a.date.day == day.day && (a.yearly || a.date.year == day.year)) a,
+      ];
+
+  Anniversary? anniversaryOn(DateTime day) => anniversariesOn(day).firstOrNull;
 
   /// The nearest anniversary from [today] on (today itself counts), or null.
   ({Anniversary anniversary, int days})? upcoming(DateTime today) {

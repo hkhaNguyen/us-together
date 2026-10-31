@@ -9,13 +9,29 @@ service firebase.storage {
         && firestore.exists(/databases/(default)/documents/members/$(request.auth.token.email));
     }
 
+    // The person (people/{id}) the signed-in email belongs to.
+    function me() {
+      return firestore.get(/databases/(default)/documents/members/$(request.auth.token.email)).data.person;
+    }
+
+    function isSmallImage(maxBytes) {
+      return request.resource.size < maxBytes && request.resource.contentType.matches('image/.*');
+    }
+
     match /photos/{photoId}/{file} {
       allow read: if isMember();
       // Photos are compressed on the device first; anything big or non-image
       // didn't come from the app.
-      allow write: if isMember()
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+      allow create, update: if isMember() && isSmallImage(10 * 1024 * 1024);
+      // Emptying the trash removes the files for good.
+      allow delete: if isMember();
+    }
+
+    // avatars/{personId}-{time}.webp — each of them only touches their own.
+    match /avatars/{file} {
+      allow read: if isMember();
+      allow create, update: if isMember() && file.matches(me() + '-.*') && isSmallImage(2 * 1024 * 1024);
+      allow delete: if isMember() && file.matches(me() + '-.*');
     }
   }
 }

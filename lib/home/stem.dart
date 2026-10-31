@@ -58,6 +58,7 @@ class StemPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final m = layout.metrics;
     canvas.drawPath(m.stemPath(layout.stemBottom), BranchShapes.ink..strokeWidth = 2.4);
+    _paintPot(canvas, m.stemX, layout.stemBottom);
 
     for (final marker in layout.markers.where((k) => k.newYear)) {
       final y = marker.y + markerHeight / 2;
@@ -69,6 +70,44 @@ class StemPainter extends CustomPainter {
       BranchShapes.drawLeaf(canvas, BranchShapes.leafUp, BranchShapes.leafUpBase, 1);
       canvas.restore();
     }
+  }
+
+  /// Hand-drawn clay pot the stem grows out of, with two small leaves at its
+  /// foot.
+  static void _paintPot(Canvas canvas, double x, double soil) {
+    final ink = BranchShapes.ink..strokeWidth = 1.6;
+    for (final dir in [-1.0, 1.0]) {
+      canvas
+        ..save()
+        ..translate(x, soil - 14)
+        ..scale(dir * .8, .8)
+        ..translate(-BranchShapes.leafUpBase.dx, -BranchShapes.leafUpBase.dy);
+      BranchShapes.drawLeaf(canvas, BranchShapes.leafUp, BranchShapes.leafUpBase, 1);
+      canvas.restore();
+    }
+
+    final rim = RRect.fromRectAndRadius(Rect.fromLTRB(x - 52, soil, x + 52, soil + 16), const Radius.circular(4));
+    final body = Path()
+      ..moveTo(x - 45, soil + 16)
+      ..lineTo(x + 45, soil + 16)
+      ..lineTo(x + 33, soil + TimelineMetrics.potHeight - 4)
+      ..quadraticBezierTo(x + 32, soil + TimelineMetrics.potHeight, x + 28, soil + TimelineMetrics.potHeight)
+      ..lineTo(x - 28, soil + TimelineMetrics.potHeight)
+      ..quadraticBezierTo(x - 32, soil + TimelineMetrics.potHeight, x - 33, soil + TimelineMetrics.potHeight - 4)
+      ..close();
+    canvas
+      ..drawPath(body, Paint()..color = Paper.c6)
+      ..drawPath(body, ink)
+      // A soft light stripe down the pot.
+      ..drawLine(Offset(x - 30, soil + 24), Offset(x - 24, soil + TimelineMetrics.potHeight - 10),
+          Paint()
+            ..color = Paper.c4.withValues(alpha: .7)
+            ..strokeWidth = 4
+            ..strokeCap = StrokeCap.round)
+      ..drawRRect(rim, Paint()..color = Paper.c5)
+      ..drawRRect(rim, ink)
+      // Soil showing inside the rim.
+      ..drawOval(Rect.fromLTRB(x - 44, soil - 3, x + 44, soil + 5), Paint()..color = Paper.c8);
   }
 
   @override

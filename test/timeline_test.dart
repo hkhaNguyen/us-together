@@ -79,7 +79,8 @@ void main() {
 
     test('card height follows the real title: one line is shorter than two', () {
       // Neither has cảm nghĩ, so only the title differs.
-      final cards = {for (final p in lay(390).placed) p.entry.id: p.rect.height};
+      // 480px leaves room for "Giáng sinh" on one line in the test font.
+      final cards = {for (final p in lay(480).placed) p.entry.id: p.rect.height};
       expect(cards['m5']! + 17, lessThan(cards['m3']!)); // "Giáng sinh" vs a two-line title
     });
 
@@ -109,6 +110,17 @@ void main() {
         });
       }
     }
+
+    test('items take turns left and right, and keep clear of the leaves', () {
+      final layout = lay(390);
+      final m = layout.metrics;
+      for (final (i, p) in layout.placed.indexed) {
+        expect(p.side, i.isEven ? Side.left : Side.right, reason: 'item $i');
+        final nearEdge = p.side == Side.left ? m.stemX - p.rect.right : p.rect.left - m.stemX;
+        // Leaves reach 41px out from the stem; the item must start past them.
+        expect(nearEdge, greaterThanOrEqualTo(41), reason: 'item $i');
+      }
+    });
 
     test('a marker wherever the month changes, big leaf on new years', () {
       final layout = lay(390);

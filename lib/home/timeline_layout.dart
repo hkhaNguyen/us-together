@@ -8,9 +8,10 @@ import 'timeline.dart';
 
 enum Side { left, right }
 
-/// Positions on the mobile home page, scaled from the 390px design.
+/// Positions on the home page: the stem down the middle, items taking turns
+/// left and right of it.
 class TimelineMetrics {
-  TimelineMetrics(this.width) : stemX = width * 150 / 390;
+  TimelineMetrics(this.width) : stemX = width / 2;
 
   final double width;
   final double stemX;
@@ -18,12 +19,25 @@ class TimelineMetrics {
   static const flowerY = 200.0;
   static const flowerSize = 126.0;
 
+  /// The "sắp tới" note hangs just under the flower, right of the stem.
+  static const noteTop = flowerY + flowerSize / 2 + 8;
+
   /// The stem is drawn in segments this tall, starting at the flower.
   static const segment = 250.0;
 
-  double get cardLeft => stemX + 46;
-  double get cardWidth => width - cardLeft - 22;
-  double get polaroidLeft => stemX - 126;
+  /// Stem to an item's near edge. Branches reach 53px, so they tuck 9px
+  /// under the item and both leaves (up to 41px out) stay in view.
+  static const gap = 44.0;
+  static const _margin = 14.0;
+
+  /// The flower pot under the stem.
+  static const potHeight = 84.0;
+
+  double get columnWidth => stemX - gap - _margin;
+  double get cardWidth => math.min(columnWidth, 220);
+
+  /// Left edge of an item [itemWidth] wide on [side].
+  double leftOf(Side side, double itemWidth) => side == Side.right ? stemX + gap : stemX - gap - itemWidth;
 
   /// Each segment has its control points at a third and two thirds of its
   /// height, so y is linear in t and the stem's x at any y is exact.
@@ -83,20 +97,25 @@ class TimelineLayout {
   final List<MonthMarker> markers;
   final double stemBottom;
 
-  double get height => stemBottom + 80;
+  double get height => stemBottom + TimelineMetrics.potHeight + 48;
 }
 
 const branchSpacing = 120.0;
 const _sideGap = 24.0;
 const markerHeight = 26.0;
 
-/// Where the branch meets the stem, measured from the item's top.
-const _branchOffset = {Side.right: 94.0, Side.left: 60.0};
+/// Room kept for the "sắp tới" note at the top of the right column.
+const _noteHeight = 84.0;
 
-/// Lays [entries] (newest first) down the stem: moments on the right, photo
-/// stacks on the left. Items on opposite sides may overlap vertically, but
-/// branches stay at least [branchSpacing] apart. A month marker goes on the
-/// stem wherever the month changes, below the newest month's items.
+/// Where the branch meets the stem, measured from the item's top: it rises
+/// 28px to end in the item's upper part.
+double _branchOffset(TimelineEntry e) => e is MomentEntry ? 94 : 60;
+
+/// Lays [entries] (newest first) down the stem, each on the other side from
+/// the one before, starting on the left (the note takes the top right).
+/// Items on opposite sides may overlap vertically, but branches stay at least
+/// [branchSpacing] apart. A month marker goes on the stem wherever the month
+/// changes, below the newest month's items.
 TimelineLayout layoutTimeline(
   List<TimelineEntry> entries,
   double width, {
@@ -104,8 +123,8 @@ TimelineLayout layoutTimeline(
   required TextStyle momentTitleStyle,
 }) {
   final m = TimelineMetrics(width);
-  // The upcoming note sits above the right column, the flower above the left.
-  final nextTop = {Side.right: 236.0, Side.left: 290.0};
+  const belowFlower = TimelineMetrics.flowerY + TimelineMetrics.flowerSize / 2 + 27;
+  final nextTop = {Side.left: belowFlower, Side.right: TimelineMetrics.noteTop + _noteHeight + _sideGap};
   var lastBranchY = -double.infinity;
   final placed = <PlacedEntry>[];
   final markers = <MonthMarker>[];
@@ -120,14 +139,14 @@ TimelineLayout layoutTimeline(
     }
     month = eMonth;
 
-    final side = e is MomentEntry ? Side.right : Side.left;
-    final offset = _branchOffset[side]!;
+    final side = placed.length.isEven ? Side.left : Side.right;
+    final offset = _branchOffset(e);
     final top = math.max(nextTop[side]!, lastBranchY + branchSpacing - offset);
     final size = switch (e) {
       MomentEntry() => Size(m.cardWidth, MomentCard.heightFor(e, width: m.cardWidth, textScaler: textScaler, titleStyle: momentTitleStyle)),
       PhotoStackEntry() => Size(PolaroidStack.width, PolaroidStack.heightFor(textScaler)),
     };
-    final left = side == Side.right ? m.cardLeft : m.polaroidLeft;
+    final left = m.leftOf(side, size.width);
     final branchY = top + offset;
 
     placed.add(PlacedEntry(

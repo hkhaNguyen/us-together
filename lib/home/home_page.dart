@@ -6,15 +6,18 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../add/add_moment_sheet.dart';
 import '../add/add_photos_sheet.dart';
+import '../add/photo_pipeline.dart';
 import '../add/sheet_frame.dart';
 import '../anniversaries/anniversaries_page.dart';
 import '../data/journal_store.dart';
 import '../data/models.dart';
 import '../data/vi_format.dart';
 import '../moment/moment_page.dart';
-import '../viewer/photo_viewer.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
+import '../trash/trash_page.dart';
+import '../viewer/photo_viewer.dart';
+import '../widgets/paper_bits.dart';
 import '../widgets/sakura_flower.dart';
 import 'moment_card.dart';
 import 'polaroid_stack.dart';
@@ -50,7 +53,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
-  static const _maxWidth = 480.0;
+  /// Wide enough for two columns of cards around the centred stem.
+  static const _maxWidth = 560.0;
 
   final _scroll = ScrollController();
   final _plusFloating = ValueNotifier(false);
@@ -120,8 +124,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _openAnniversaries() => _open(AnniversariesPage(session: widget.session, store: widget.store));
 
   Future<void> _openProfileMenu(BuildContext button) async {
-    final choice = await _menuAt(button, const [PopupMenuItem(value: 'sign-out', child: Text('Đăng xuất'))]);
-    if (choice == 'sign-out') await widget.onSignOut();
+    final choice = await _menuAt(button, const [
+      PopupMenuItem(value: 'avatar', child: Text('Đổi ảnh đại diện')),
+      PopupMenuItem(value: 'trash', child: Text('Thùng giấy')),
+      PopupMenuItem(value: 'sign-out', child: Text('Đăng xuất')),
+    ]);
+    switch (choice) {
+      case 'avatar':
+        await _changeAvatar();
+      case 'trash':
+        _open(TrashPage(session: widget.session, store: widget.store));
+      case 'sign-out':
+        await widget.onSignOut();
+    }
+  }
+
+  Future<void> _changeAvatar() async {
+    final messenger = ScaffoldMessenger.of(context);
+    void say(String text) => messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+    try {
+      final bytes = await pickOnePhoto();
+      if (bytes == null) return;
+      say('đang đổi ảnh đại diện…');
+      await widget.store.setAvatar(widget.journal.person(widget.meId), bytes);
+      say('đã đổi ảnh đại diện');
+    } catch (e) {
+      say('chưa đổi được ảnh ($e)');
+    }
   }
 
   Future<void> _pickStartDate() async {
@@ -203,8 +234,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   ),
                   if (upcoming != null)
                     Positioned(
-                      left: m.stemX + 76,
-                      top: 136,
+                      left: m.stemX + 20,
+                      width: math.min(190, m.width - m.stemX - 34),
+                      top: TimelineMetrics.noteTop,
                       child: _UpcomingNote(
                         title: upcoming.anniversary.titleOn(today.add(Duration(days: upcoming.days))),
                         days: upcoming.days,
@@ -305,13 +337,8 @@ class _Header extends StatelessWidget {
           builder: (button) => IconButton(
             tooltip: 'Trang cá nhân',
             onPressed: () => onProfile(button),
-            style: IconButton.styleFrom(
-              fixedSize: const Size.square(44),
-              backgroundColor: me.color,
-              side: const BorderSide(color: Sakura.c2, width: 3),
-              padding: EdgeInsets.zero,
-            ),
-            icon: Text(me.name.characters.first, style: AppText.title.copyWith(color: Paper.c1, fontWeight: FontWeight.w400)),
+            style: IconButton.styleFrom(fixedSize: const Size.square(48), padding: EdgeInsets.zero),
+            icon: PersonAvatar(person: me, size: 44, ring: const BorderSide(color: Sakura.c2, width: 3)),
           ),
         ),
       ],
@@ -387,7 +414,8 @@ class _UpcomingNote extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 140,
+            // Wide enough for "ngày kỷ niệm 10 năm" on one line.
+            constraints: const BoxConstraints(minWidth: 140, maxWidth: 190),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(color: Paper.c1, borderRadius: BorderRadius.circular(Radii.tape), boxShadow: Shadows.paperSm),
             child: Column(

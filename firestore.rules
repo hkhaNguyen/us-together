@@ -10,19 +10,22 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/members/$(request.auth.token.email));
     }
 
+    // The person (people/{id}) the signed-in email belongs to.
+    function me() {
+      return get(/databases/$(database)/documents/members/$(request.auth.token.email)).data.person;
+    }
+
     match /members/{email} {
       allow read: if isMember();
       allow write: if false;
     }
 
+    // Names and colours are set in the console; each of them may only change
+    // their own picture.
     match /people/{personId} {
       allow read: if isMember();
-      allow write: if false;
-    }
-
-    // The person (people/{id}) the signed-in email belongs to.
-    function me() {
-      return get(/databases/$(database)/documents/members/$(request.auth.token.email)).data.person;
+      allow update: if isMember() && personId == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['avatarUrl']);
     }
 
     // Cảm nghĩ: anyone writes their own; only the author edits or deletes.

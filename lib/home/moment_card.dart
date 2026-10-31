@@ -124,7 +124,7 @@ class _Reflections extends StatelessWidget {
     return Row(
       children: [
         for (final (i, p) in entry.entryAuthors.indexed)
-          Transform.translate(offset: Offset(-7.0 * i, 0), child: AvatarDot(color: p.color)),
+          Transform.translate(offset: Offset(-7.0 * i, 0), child: PersonAvatar(person: p, size: 18, ring: const BorderSide(color: Paper.c1, width: 2))),
         SizedBox(width: 6 - 7.0 * (entry.entryAuthors.length - 1)),
         Text('${entry.entryCount} cảm nghĩ', style: AppText.label.copyWith(fontSize: 10, letterSpacing: 0, fontWeight: FontWeight.w400)),
       ],

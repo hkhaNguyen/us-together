@@ -23,6 +23,9 @@ Future<List<PickedPhoto>> pickPhotos() async {
   ];
 }
 
+/// One picture's bytes (for an avatar); null if they backed out.
+Future<Uint8List?> pickOnePhoto() async => (await ImagePicker().pickImage(source: ImageSource.gallery))?.readAsBytes();
+
 Future<PickedPhoto> _read(XFile file) async {
   final bytes = await file.readAsBytes();
   DateTime? taken;
@@ -88,6 +91,33 @@ class PhotoUploader {
       'w': w,
       'h': h,
     };
+  }
+
+  /// A square-ish 320px picture under a new name each time, so no cache
+  /// keeps showing the old one. Returns its download URL.
+  Future<String> uploadAvatar(String personId, Uint8List bytes) async {
+    final small = await FlutterImageCompress.compressWithList(bytes, minWidth: 320, minHeight: 320, quality: 80, format: CompressFormat.webp);
+    final ref = _storage.ref('avatars/$personId-${DateTime.now().millisecondsSinceEpoch}.webp');
+    await ref.putData(small, SettableMetadata(contentType: 'image/webp', cacheControl: 'private, max-age=31536000'));
+    return ref.getDownloadURL();
+  }
+
+  /// Best effort: a leftover old file is harmless.
+  Future<void> deleteByUrl(String url) async {
+    try {
+      await _storage.refFromURL(url).delete();
+    } catch (_) {}
+  }
+
+  /// Removes both stored files of a photo; already-missing ones are fine.
+  Future<void> deleteFiles(String id) async {
+    for (final name in ['full.webp', 'thumb.webp']) {
+      try {
+        await _storage.ref('photos/$id/$name').delete();
+      } on FirebaseException catch (e) {
+        if (e.code != 'object-not-found') rethrow;
+      }
+    }
   }
 
   /// The stored file behind a download URL.

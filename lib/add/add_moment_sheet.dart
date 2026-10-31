@@ -59,8 +59,12 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
   void _setDate(DateTime date, {required bool byHand}) {
     _date = DateUtils.dateOnly(date);
     _dateTouched |= byHand;
-    if (!_anniversaryTouched) {
-      _anniversaryId = widget.journal.anniversaryOn(_date)?.id;
+    // A moment can only belong to an anniversary on its own date; a choice
+    // that no longer fits the new date is dropped.
+    final fits = widget.journal.anniversariesOn(_date);
+    if (!_anniversaryTouched || !fits.any((a) => a.id == _anniversaryId)) {
+      _anniversaryId = fits.firstOrNull?.id;
+      _anniversaryTouched = false;
     }
   }
 
@@ -198,7 +202,7 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
                         value: null,
                         child: Text('— không —'),
                       ),
-                      for (final a in widget.journal.anniversaries)
+                      for (final a in widget.journal.anniversariesOn(_date))
                         DropdownMenuItem(
                           value: a.id,
                           child: Text(

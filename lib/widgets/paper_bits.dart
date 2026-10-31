@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../data/models.dart';
+import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 
 /// A photo, or the paper-4 placeholder while there is none / it fails.
@@ -56,19 +58,42 @@ class Tape extends StatelessWidget {
   }
 }
 
-/// Small round avatar in a person's colour.
-class AvatarDot extends StatelessWidget {
-  const AvatarDot({super.key, required this.color, this.size = 18});
+/// A person's picture in a circle, or their initial on their colour until
+/// they've set one.
+class PersonAvatar extends StatelessWidget {
+  const PersonAvatar({super.key, required this.person, this.size = 30, this.ring});
 
-  final Color color;
+  final Person person;
   final double size;
+
+  /// Outline drawn around it, e.g. a paper rim where avatars overlap.
+  final BorderSide? ring;
 
   @override
   Widget build(BuildContext context) {
+    final initial = Center(
+      child: Text(
+        person.name.characters.first,
+        style: AppText.body.copyWith(fontSize: size * .4, height: 1, color: Paper.c1, fontWeight: FontWeight.w500),
+      ),
+    );
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Paper.c1, width: 2)),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: person.color,
+        shape: BoxShape.circle,
+        border: ring == null ? null : Border.fromBorderSide(ring!),
+      ),
+      child: person.avatarUrl == null
+          ? (size < 24 ? null : initial)
+          : Image.network(
+              person.avatarUrl!,
+              fit: BoxFit.cover,
+              webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+              errorBuilder: (_, _, _) => initial,
+            ),
     );
   }
 }

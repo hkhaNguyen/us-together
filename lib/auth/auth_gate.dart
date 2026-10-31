@@ -53,8 +53,17 @@ class _JournalGateState extends State<_JournalGate> {
   @override
   void initState() {
     super.initState();
+    var purged = false;
     _subscription = _store.watch(widget.email).listen(
-          (s) => _session.value = s,
+          (s) {
+            _session.value = s;
+            // Once per launch: whatever has sat in the trash past its 30 days
+            // goes for good. Failing quietly is fine; the next launch retries.
+            if (!purged) {
+              purged = true;
+              _store.purgeExpired(s.journal).catchError((Object _) {});
+            }
+          },
           onError: (Object e) => setState(() => _error = e),
         );
   }

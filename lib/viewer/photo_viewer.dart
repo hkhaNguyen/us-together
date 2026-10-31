@@ -92,26 +92,45 @@ class _PhotoViewerState extends State<PhotoViewer> {
     _say('đã gắn vào “${chosen.title}”');
   }
 
-  Future<void> _more(BuildContext button, Journal journal, Photo photo) async {
+  /// Loose photos added in the same go as [photo], itself included.
+  static List<Photo> _stackOf(Journal journal, Photo photo) => photo.momentId != null || photo.stackId == null
+      ? [photo]
+      : [for (final p in journal.photos) if (p.momentId == null && p.stackId == photo.stackId) p];
+
+  List<PopupMenuEntry<String>> _moreItems(Journal journal, Photo photo, {required bool mine}) {
     final moment = photo.momentId == null ? null : journal.moment(photo.momentId!);
-    if (moment == null) return;
+    final stack = _stackOf(journal, photo);
+    return [
+      if (moment != null && moment.coverPhotoId != photo.id) const PopupMenuItem(value: 'cover', child: Text('Đặt làm bìa kỷ niệm')),
+      if (moment != null) const PopupMenuItem(value: 'detach', child: Text('Gỡ khỏi kỷ niệm (về thân hoa)')),
+      // Only whoever added a photo can throw it away.
+      if (mine) const PopupMenuItem(value: 'trash', child: Text('Xoá ảnh này')),
+      if (mine && stack.length > 1) PopupMenuItem(value: 'trash-stack', child: Text('Xoá cả xấp (${stack.length} ảnh)')),
+    ];
+  }
+
+  Future<void> _more(BuildContext button, Journal journal, Photo photo, String me) async {
+    final moment = photo.momentId == null ? null : journal.moment(photo.momentId!);
     final overlay = Overlay.of(button).context.findRenderObject()! as RenderBox;
     final box = button.findRenderObject()! as RenderBox;
     final choice = await showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(box.localToGlobal(Offset.zero, ancestor: overlay) & box.size, Offset.zero & overlay.size),
-      items: [
-        if (moment.coverPhotoId != photo.id) const PopupMenuItem(value: 'cover', child: Text('Đặt làm bìa kỷ niệm')),
-        const PopupMenuItem(value: 'detach', child: Text('Gỡ khỏi kỷ niệm (về thân hoa)')),
-      ],
+      items: _moreItems(journal, photo, mine: photo.addedBy == me),
     );
     switch (choice) {
       case 'cover':
-        await widget.store.setCover(moment.id, photo.id);
+        await widget.store.setCover(moment!.id, photo.id);
         _say('đã đặt làm bìa');
       case 'detach':
-        await widget.store.detachPhoto(photo.id, moment);
+        await widget.store.detachPhoto(photo.id, moment!);
         _say('ảnh đã về thân hoa');
+      case 'trash':
+        await widget.store.trashPhotos([photo.id], by: me);
+        _say('đã cho vào thùng giấy');
+      case 'trash-stack':
+        await widget.store.trashPhotos([for (final p in _stackOf(journal, photo)) p.id], by: me);
+        _say('đã cho cả xấp vào thùng giấy');
     }
   }
 
@@ -123,7 +142,9 @@ class _PhotoViewerState extends State<PhotoViewer> {
         final journal = session?.journal;
         final photos = [for (final id in widget.photoIds) ?journal?.photo(id)];
         if (journal == null || photos.isEmpty) {
-          return const Scaffold(backgroundColor: Paper.c9, body: Center(child: CircularProgressIndicator(color: Paper.c4)));
+          // Everything shown here was deleted (maybe from the other phone).
+          if (journal != null) WidgetsBinding.instance.addPostFrameCallback((_) => Navigator.maybePop(context));
+          return const Scaffold(backgroundColor: Paper.c9);
         }
         final index = _index.clamp(0, photos.length - 1);
         final photo = photos[index];
@@ -153,11 +174,11 @@ class _PhotoViewerState extends State<PhotoViewer> {
                           style: AppText.body.copyWith(fontSize: 12, color: Paper.c5),
                         ),
                       ),
-                      if (photo.momentId != null)
+                      if (_moreItems(journal, photo, mine: mine).isNotEmpty)
                         Builder(
                           builder: (button) => IconButton(
                             tooltip: 'Thêm tuỳ chọn',
-                            onPressed: () => _more(button, journal, photo),
+                            onPressed: () => _more(button, journal, photo, session.me),
                             style: IconButton.styleFrom(side: outline, fixedSize: const Size.square(44)),
                             icon: const Icon(Icons.more_horiz, size: 18, color: Paper.c1),
                           ),
@@ -189,7 +210,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
                     children: [
                       Row(
                         children: [
-                          AvatarDot(color: adder.color, size: 26),
+                          PersonAvatar(person: adder, size: 26),
                           const SizedBox(width: Space.s2),
                           Expanded(
                             child: Text.rich(

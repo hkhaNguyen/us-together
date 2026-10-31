@@ -168,6 +168,98 @@ class JournalStore {
 
   Future<void> deleteEntry(String entryId) => _db.collection('entries').doc(entryId).delete();
 
+  /// Replaces [person]'s picture; the old file is removed afterwards.
+  Future<void> setAvatar(Person person, Uint8List bytes) async {
+    final url = await _uploader.uploadAvatar(person.id, bytes);
+    await _db.collection('people').doc(person.id).update({'avatarUrl': url});
+    if (person.avatarUrl != null) await _uploader.deleteByUrl(person.avatarUrl!);
+  }
+
+  // ── Thùng giấy ─────────────────────────────────────────────────────────
+  // Trashing only marks things; they leave the stem but keep their date, so
+  // restoring puts them back exactly where they were.
+
+  static Map<String, Object?> _trash(String by, {String? withMoment}) => {
+        'deletedAt': Timestamp.now(),
+        'deletedBy': by,
+        'deletedWith': ?withMoment,
+      };
+  static final _untrash = {'deletedAt': FieldValue.delete(), 'deletedBy': FieldValue.delete(), 'deletedWith': FieldValue.delete()};
+
+  Future<void> trashPhotos(List<String> photoIds, {required String by}) {
+    final batch = _db.batch();
+    for (final id in photoIds) {
+      batch.update(_photo(id), _trash(by));
+    }
+    return batch.commit();
+  }
+
+  /// [withPhotos]: the photos go to the trash too; otherwise they go back on
+  /// the stem and are remembered so a restore can take them back.
+  Future<void> trashMoment(Moment moment, {required bool withPhotos, required String by}) {
+    final batch = _db.batch()
+      ..update(_moment(moment.id), {
+        ..._trash(by),
+        'keptPhotoIds': withPhotos ? [] : moment.photoIds,
+      });
+    for (final id in moment.photoIds) {
+      batch.update(_photo(id), withPhotos ? _trash(by, withMoment: moment.id) : {'momentId': null});
+    }
+    return batch.commit();
+  }
+
+  Future<void> restorePhotos(List<String> photoIds) {
+    final batch = _db.batch();
+    for (final id in photoIds) {
+      batch.update(_photo(id), _untrash);
+    }
+    return batch.commit();
+  }
+
+  /// Brings back the photos that went with it, and takes back kept ones that
+  /// are still loose on the stem.
+  Future<void> restoreMoment(Moment moment, Journal journal) {
+    final batch = _db.batch()..update(_moment(moment.id), {..._untrash, 'keptPhotoIds': FieldValue.delete()});
+    for (final p in journal.trashedPhotos.where((p) => p.trashed?.withMoment == moment.id)) {
+      batch.update(_photo(p.id), _untrash);
+    }
+    for (final id in moment.keptPhotoIds) {
+      final photo = journal.photo(id);
+      if (photo != null && photo.momentId == null) batch.update(_photo(id), {'momentId': moment.id});
+    }
+    return batch.commit();
+  }
+
+  /// Gone for good: documents and stored files.
+  Future<void> purgePhotos(List<Photo> photos) async {
+    for (final p in photos) {
+      await _uploader.deleteFiles(p.id);
+    }
+    final batch = _db.batch();
+    for (final p in photos) {
+      batch.delete(_photo(p.id));
+    }
+    await batch.commit();
+  }
+
+  /// The moment and the photos that went to the trash with it.
+  Future<void> purgeMoment(Moment moment, Journal journal) async {
+    await purgePhotos([for (final p in journal.trashedPhotos) if (p.trashed?.withMoment == moment.id) p]);
+    await _moment(moment.id).delete();
+  }
+
+  /// Run on opening the app: anything in the trash past its 30 days goes.
+  Future<void> purgeExpired(Journal journal) async {
+    final today = DateTime.now();
+    for (final m in journal.trashedMoments.where((m) => m.trashed!.daysLeft(today) <= 0)) {
+      await purgeMoment(m, journal);
+    }
+    await purgePhotos([
+      for (final p in journal.trashedPhotos)
+        if (p.trashed!.withMoment == null && p.trashed!.daysLeft(today) <= 0) p,
+    ]);
+  }
+
   Future<Uint8List?> downloadPhoto(Photo photo) => _uploader.download(photo.fullUrl ?? photo.thumbUrl!);
 
   /// Uploads every file first and only queues the documents in [batch], so a
@@ -204,42 +296,59 @@ class JournalStore {
     final [people, moments, photos, entries, anniversaries] = docs;
     // A server timestamp is still null in the local echo of a fresh write.
     DateTime date(Object? v) => v is Timestamp ? v.toDate() : DateTime.now();
+    Trashed? trashed(Map<String, dynamic> d) => d['deletedAt'] == null
+        ? null
+        : Trashed(at: date(d['deletedAt']), by: d['deletedBy'] as String? ?? '', withMoment: d['deletedWith'] as String?);
+    List<String> ids(Object? v) => List<String>.from(v as List? ?? const []);
+
+    final allMoments = [
+      for (final d in moments)
+        Moment(
+          id: d.id,
+          date: date(d['date']),
+          title: d['title'] as String,
+          addedBy: d['addedBy'] as String,
+          body: d.data()['body'] as String? ?? '',
+          photoIds: ids(d.data()['photoIds']),
+          coverPhotoId: d.data()['coverPhotoId'] as String?,
+          anniversaryId: d.data()['anniversaryId'] as String?,
+          trashed: trashed(d.data()),
+          keptPhotoIds: ids(d.data()['keptPhotoIds']),
+        ),
+    ];
+    final allPhotos = [
+      for (final d in photos)
+        Photo(
+          id: d.id,
+          takenAt: date(d['takenAt']),
+          addedBy: d['addedBy'] as String,
+          thumbUrl: d.data()['thumbUrl'] as String?,
+          fullUrl: d.data()['fullUrl'] as String?,
+          aspectRatio: switch ((d.data()['w'], d.data()['h'])) {
+            (final num w, final num h) when w > 0 && h > 0 => w / h,
+            _ => 1,
+          },
+          title: d.data()['title'] as String?,
+          momentId: d.data()['momentId'] as String?,
+          stackId: d.data()['stackId'] as String?,
+          trashed: trashed(d.data()),
+        ),
+    ];
 
     return Journal(
       people: [
         for (final d in people)
-          Person(id: d.id, name: d['name'] as String, color: d.data()['color'] == 'sage' ? Sage.c2 : Sakura.c5),
-      ],
-      moments: [
-        for (final d in moments)
-          Moment(
+          Person(
             id: d.id,
-            date: date(d['date']),
-            title: d['title'] as String,
-            addedBy: d['addedBy'] as String,
-            body: d.data()['body'] as String? ?? '',
-            photoIds: List<String>.from(d.data()['photoIds'] as List? ?? const []),
-            coverPhotoId: d.data()['coverPhotoId'] as String?,
-            anniversaryId: d.data()['anniversaryId'] as String?,
+            name: d['name'] as String,
+            color: d.data()['color'] == 'sage' ? Sage.c2 : Sakura.c5,
+            avatarUrl: d.data()['avatarUrl'] as String?,
           ),
       ],
-      photos: [
-        for (final d in photos)
-          Photo(
-            id: d.id,
-            takenAt: date(d['takenAt']),
-            addedBy: d['addedBy'] as String,
-            thumbUrl: d.data()['thumbUrl'] as String?,
-            fullUrl: d.data()['fullUrl'] as String?,
-            aspectRatio: switch ((d.data()['w'], d.data()['h'])) {
-              (final num w, final num h) when w > 0 && h > 0 => w / h,
-              _ => 1,
-            },
-            title: d.data()['title'] as String?,
-            momentId: d.data()['momentId'] as String?,
-            stackId: d.data()['stackId'] as String?,
-          ),
-      ],
+      moments: [for (final m in allMoments) if (m.trashed == null) m],
+      photos: [for (final p in allPhotos) if (p.trashed == null) p],
+      trashedMoments: [for (final m in allMoments) if (m.trashed != null) m],
+      trashedPhotos: [for (final p in allPhotos) if (p.trashed != null) p],
       entries: [
         for (final d in entries)
           Entry(
