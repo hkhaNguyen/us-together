@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:us_together/add/photo_pipeline.dart';
 
@@ -15,6 +17,13 @@ void main() {
         expect(parseExifDate(v), isNull, reason: '$v');
       }
     });
+  });
+
+  test('tells WebP from what Safari hands back instead', () {
+    Uint8List bytes(String head) => Uint8List.fromList([...head.codeUnits, ...List.filled(8, 0)]);
+    expect(PhotoUploader.isWebp(bytes('RIFF\x00\x00\x00\x00WEBPVP8 ')), isTrue);
+    expect(PhotoUploader.isWebp(bytes('\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR')), isFalse);
+    expect(PhotoUploader.isWebp(Uint8List(4)), isFalse);
   });
 
   group('anniversary on a date', () {

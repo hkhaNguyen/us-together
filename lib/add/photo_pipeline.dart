@@ -1,8 +1,8 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:exif/exif.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -67,22 +67,14 @@ class PhotoUploader {
 
   /// Returns the Firestore fields describing the uploaded files.
   Future<Map<String, Object>> upload(String id, PickedPhoto photo) async {
-    Future<Uint8List> webp(int shortEdge, int quality) => FlutterImageCompress.compressWithList(
-          photo.bytes,
-          minWidth: shortEdge,
-          minHeight: shortEdge,
-          quality: quality,
-          format: CompressFormat.webp,
-        );
-    final full = await webp(_fullShortEdge, 82);
-    final thumb = await webp(_thumbShortEdge, 75);
-    final (w, h) = await _size(thumb);
+    final full = await _compress(photo.bytes, _fullShortEdge, 82);
+    final thumb = await _compress(photo.bytes, _thumbShortEdge, 75);
+    final (w, h) = await _size(thumb.bytes);
 
     final dir = _storage.ref('photos/$id');
-    final meta = SettableMetadata(contentType: 'image/webp', cacheControl: 'private, max-age=31536000');
-    final fullRef = dir.child('full.webp');
-    final thumbRef = dir.child('thumb.webp');
-    await Future.wait([fullRef.putData(full, meta), thumbRef.putData(thumb, meta)]);
+    final fullRef = dir.child('full.${full.ext}');
+    final thumbRef = dir.child('thumb.${thumb.ext}');
+    await Future.wait([fullRef.putData(full.bytes, _meta(full)), thumbRef.putData(thumb.bytes, _meta(thumb))]);
 
     return {
       'fullUrl': await fullRef.getDownloadURL(),
@@ -96,11 +88,31 @@ class PhotoUploader {
   /// A square-ish 320px picture under a new name each time, so no cache
   /// keeps showing the old one. Returns its download URL.
   Future<String> uploadAvatar(String personId, Uint8List bytes) async {
-    final small = await FlutterImageCompress.compressWithList(bytes, minWidth: 320, minHeight: 320, quality: 80, format: CompressFormat.webp);
-    final ref = _storage.ref('avatars/$personId-${DateTime.now().millisecondsSinceEpoch}.webp');
-    await ref.putData(small, SettableMetadata(contentType: 'image/webp', cacheControl: 'private, max-age=31536000'));
+    final small = await _compress(bytes, 320, 80);
+    final ref = _storage.ref('avatars/$personId-${DateTime.now().millisecondsSinceEpoch}.${small.ext}');
+    await ref.putData(small.bytes, _meta(small));
     return ref.getDownloadURL();
   }
+
+  /// WebP where the platform can encode it. Safari can't — its canvas hands
+  /// back a PNG instead — so anything that isn't WebP is redone as JPEG.
+  static Future<({Uint8List bytes, String ext})> _compress(Uint8List src, int shortEdge, int quality) async {
+    Future<Uint8List> as(CompressFormat format) =>
+        FlutterImageCompress.compressWithList(src, minWidth: shortEdge, minHeight: shortEdge, quality: quality, format: format);
+    final webp = await as(CompressFormat.webp);
+    if (isWebp(webp)) return (bytes: webp, ext: 'webp');
+    return (bytes: await as(CompressFormat.jpeg), ext: 'jpg');
+  }
+
+  /// WebP files start "RIFF····WEBP".
+  @visibleForTesting
+  static bool isWebp(Uint8List b) =>
+      b.length > 12 && String.fromCharCodes(b.sublist(0, 4)) == 'RIFF' && String.fromCharCodes(b.sublist(8, 12)) == 'WEBP';
+
+  static SettableMetadata _meta(({Uint8List bytes, String ext}) file) => SettableMetadata(
+        contentType: file.ext == 'webp' ? 'image/webp' : 'image/jpeg',
+        cacheControl: 'private, max-age=31536000',
+      );
 
   /// Best effort: a leftover old file is harmless.
   Future<void> deleteByUrl(String url) async {
@@ -109,11 +121,13 @@ class PhotoUploader {
     } catch (_) {}
   }
 
-  /// Removes both stored files of a photo; already-missing ones are fine.
+  /// Removes every stored file of a photo (WebP or JPEG, whichever it got);
+  /// already-missing ones are fine.
   Future<void> deleteFiles(String id) async {
-    for (final name in ['full.webp', 'thumb.webp']) {
+    final files = await _storage.ref('photos/$id').listAll();
+    for (final file in files.items) {
       try {
-        await _storage.ref('photos/$id/$name').delete();
+        await file.delete();
       } on FirebaseException catch (e) {
         if (e.code != 'object-not-found') rethrow;
       }
