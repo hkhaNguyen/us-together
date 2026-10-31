@@ -8,7 +8,7 @@ import '../widgets/paper_bits.dart';
 import 'photo_pipeline.dart';
 
 /// Opens [sheet] as the paper bottom sheet from the add designs.
-Future<void> showPaperSheet(BuildContext context, Widget sheet) => showModalBottomSheet(
+Future<T?> showPaperSheet<T>(BuildContext context, Widget sheet) => showModalBottomSheet<T>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

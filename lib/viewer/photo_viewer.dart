@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../add/add_photos_sheet.dart';
+import '../add/sheet_frame.dart';
 import '../data/journal_store.dart';
 import '../data/models.dart';
 import '../data/vi_format.dart';
@@ -28,6 +30,9 @@ class PhotoViewer extends StatefulWidget {
 class _PhotoViewerState extends State<PhotoViewer> {
   late final _pages = PageController(initialPage: widget.initial);
   late var _index = widget.initial;
+
+  /// Grows when photos are added to the stack from here.
+  late final _ids = [...widget.photoIds];
   var _zoomed = false;
   var _saving = false;
 
@@ -101,6 +106,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
     final moment = photo.momentId == null ? null : journal.moment(photo.momentId!);
     final stack = _stackOf(journal, photo);
     return [
+      if (moment == null) const PopupMenuItem(value: 'add', child: Text('Thêm ảnh vào xấp')),
       if (moment != null && moment.coverPhotoId != photo.id) const PopupMenuItem(value: 'cover', child: Text('Đặt làm bìa kỷ niệm')),
       if (moment != null) const PopupMenuItem(value: 'detach', child: Text('Gỡ khỏi kỷ niệm (về thân hoa)')),
       // Only whoever added a photo can throw it away.
@@ -119,6 +125,12 @@ class _PhotoViewerState extends State<PhotoViewer> {
       items: _moreItems(journal, photo, mine: photo.addedBy == me),
     );
     switch (choice) {
+      case 'add':
+        if (!mounted) return;
+        final added = await showPaperSheet<List<String>>(context, AddPhotosSheet(store: widget.store, me: me, into: photo));
+        if (added == null || added.isEmpty || !mounted) return;
+        setState(() => _ids.addAll(added));
+        _say('đã thêm ${added.length} ảnh vào xấp');
       case 'cover':
         await widget.store.setCover(moment!.id, photo.id);
         _say('đã đặt làm bìa');
@@ -140,7 +152,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
       valueListenable: widget.session,
       builder: (context, session, _) {
         final journal = session?.journal;
-        final photos = [for (final id in widget.photoIds) ?journal?.photo(id)];
+        final photos = [for (final id in _ids) ?journal?.photo(id)];
         if (journal == null || photos.isEmpty) {
           // Everything shown here was deleted (maybe from the other phone).
           if (journal != null) WidgetsBinding.instance.addPostFrameCallback((_) => Navigator.maybePop(context));

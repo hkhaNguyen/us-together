@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/journal_store.dart';
+import '../data/models.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import 'photo_pipeline.dart';
@@ -9,11 +10,15 @@ import 'sheet_frame.dart';
 
 /// 05 · Thêm ảnh lẻ: one go = one stack on the stem, with one date (from
 /// the first photo's EXIF) and one title shared by every photo in it.
+///
+/// Given [into], the photos join that photo's stack, taking its date and
+/// title, and the sheet pops with their ids.
 class AddPhotosSheet extends StatefulWidget {
-  const AddPhotosSheet({super.key, required this.store, required this.me});
+  const AddPhotosSheet({super.key, required this.store, required this.me, this.into});
 
   final JournalStore store;
   final String me;
+  final Photo? into;
 
   @override
   State<AddPhotosSheet> createState() => _AddPhotosSheetState();
@@ -22,7 +27,7 @@ class AddPhotosSheet extends StatefulWidget {
 class _AddPhotosSheetState extends State<AddPhotosSheet> {
   final _photos = <PickedPhoto>[];
   final _title = TextEditingController();
-  var _date = DateTime.now();
+  late var _date = widget.into?.takenAt ?? DateTime.now();
 
   /// Until they change it by hand, the date follows the first photo.
   var _dateTouched = false;
@@ -62,7 +67,7 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
       }
       setState(() {
         _photos.addAll(picked);
-        if (!_dateTouched && _photos.isNotEmpty) _date = _photos.first.takenAt;
+        if (!_dateTouched && widget.into == null && _photos.isNotEmpty) _date = _photos.first.takenAt;
       });
     } catch (e) {
       if (mounted) setState(() => _error = 'chưa mở được ảnh ($e)');
@@ -76,15 +81,18 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
       _uploaded = 0;
       _error = null;
     });
+    final into = widget.into;
     try {
-      await widget.store.addPhotoStack(
+      final ids = await widget.store.addPhotoStack(
         _photos,
         date: _date,
-        title: _title.text,
+        title: into == null ? _title.text : into.title ?? '',
         by: widget.me,
+        stackId: into?.stackId,
+        joinDay: into != null,
         onProgress: (n) => setState(() => _uploaded = n),
       );
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, ids);
     } catch (e) {
       setState(() {
         _uploaded = null;
@@ -98,7 +106,7 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
     final uploaded = _uploaded;
     final busy = uploaded != null;
     return SheetFrame(
-      title: 'Thêm ảnh',
+      title: widget.into == null ? 'Thêm ảnh' : 'Thêm vào xấp',
       action: 'Dán lên',
       onAction: _photos.isEmpty || _picking ? null : _save,
       status: busy
@@ -132,30 +140,33 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
             );
           },
         ),
-        const SizedBox(height: Space.s4),
-        const FieldLabel('ngày chụp'),
-        IgnorePointer(
-          ignoring: busy,
-          child: DateField(
-            date: _date,
-            label: 'ngày chụp',
-            onChanged: (d) => setState(() {
-              _date = d;
-              _dateTouched = true;
-            }),
+        // Joining a stack: its date and title carry over.
+        if (widget.into == null) ...[
+          const SizedBox(height: Space.s4),
+          const FieldLabel('ngày chụp'),
+          IgnorePointer(
+            ignoring: busy,
+            child: DateField(
+              date: _date,
+              label: 'ngày chụp',
+              onChanged: (d) => setState(() {
+                _date = d;
+                _dateTouched = true;
+              }),
+            ),
           ),
-        ),
-        const SizedBox(height: Space.s4),
-        const FieldLabel('tiêu đề'),
-        TextField(
-          controller: _title,
-          enabled: !busy,
-          minLines: 1,
-          maxLines: 4,
-          textCapitalization: TextCapitalization.sentences,
-          style: AppText.script.copyWith(fontSize: 18),
-          decoration: const InputDecoration(hintText: 'chỗ này để title ạaaa'),
-        ),
+          const SizedBox(height: Space.s4),
+          const FieldLabel('tiêu đề'),
+          TextField(
+            controller: _title,
+            enabled: !busy,
+            minLines: 1,
+            maxLines: 4,
+            textCapitalization: TextCapitalization.sentences,
+            style: AppText.script.copyWith(fontSize: 18),
+            decoration: const InputDecoration(hintText: 'chỗ này để title ạaaa'),
+          ),
+        ],
       ],
     );
   }

@@ -77,19 +77,34 @@ class JournalStore {
   /// One go of loose photos: a single stack on the stem sharing [date] and
   /// [title]. Each keeps its own time of day so they stay in shooting order.
   /// [onProgress] gets the number uploaded so far.
-  Future<void> addPhotoStack(
+  ///
+  /// With [stackId] they join that stack instead of starting a new one. A
+  /// null [stackId] with [joinDay] keeps them stackless, which the timeline
+  /// groups by day, so they land with the stackless photos of [date].
+  /// Returns the new photos' ids.
+  Future<List<String>> addPhotoStack(
     List<PickedPhoto> photos, {
     required DateTime date,
     required String title,
     required String by,
+    String? stackId,
+    bool joinDay = false,
     ValueChanged<int>? onProgress,
   }) async {
     for (final p in photos) {
       p.takenAt = DateTime(date.year, date.month, date.day, p.takenAt.hour, p.takenAt.minute, p.takenAt.second);
     }
     final batch = _db.batch();
-    await _uploadAll(photos, batch, by: by, stackId: _db.collection('photos').doc().id, title: title, onProgress: onProgress);
+    final ids = await _uploadAll(
+      photos,
+      batch,
+      by: by,
+      stackId: stackId ?? (joinDay ? null : _db.collection('photos').doc().id),
+      title: title,
+      onProgress: onProgress,
+    );
     await batch.commit();
+    return ids;
   }
 
   /// A moment and its photos, in the order given; [cover] indexes [photos].
