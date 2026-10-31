@@ -96,9 +96,14 @@ class Journal {
   final List<Entry> entries;
   final List<Anniversary> anniversaries;
 
-  Person person(String id) => people.firstWhere((p) => p.id == id);
+  /// A member removed from the console still shows up, just unnamed.
+  Person person(String id) => people.firstWhere((p) => p.id == id, orElse: () => Person(id: id, name: '?', color: const Color(0xFFB99A8A)));
 
-  int daysTogether(DateTime today) => daysBetween(anniversaries.firstWhere((a) => a.isStart).date, today);
+  /// null until "ngày bắt đầu yêu" has been set.
+  int? daysTogether(DateTime today) {
+    final start = anniversaries.where((a) => a.isStart).firstOrNull;
+    return start == null ? null : daysBetween(start.date, today);
+  }
 
   /// The nearest anniversary from [today] on (today itself counts), or null.
   ({Anniversary anniversary, int days})? upcoming(DateTime today) {

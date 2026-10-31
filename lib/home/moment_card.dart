@@ -12,10 +12,10 @@ import 'timeline.dart';
 /// cảm nghĩ. Its height is fixed up front so the timeline can be laid out
 /// before anything renders.
 class MomentCard extends StatelessWidget {
-  const MomentCard({super.key, required this.entry, required this.onTap});
+  const MomentCard({super.key, required this.entry, this.onTap});
 
   final MomentEntry entry;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   static const _pad = 10.0;
   static const _cover = 110.0;
@@ -50,7 +50,7 @@ class MomentCard extends StatelessWidget {
     final dateLine = [dotDate(e.date), if (e.anniversary != null) e.anniversary!.title].join(' · ');
 
     return Semantics(
-      button: true,
+      button: onTap != null,
       label: '${e.moment.title}, $dateLine',
       excludeSemantics: true,
       child: GestureDetector(

@@ -1,11 +1,10 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
-import 'data/mock_journal.dart';
-import 'dev/dev_page.dart';
+import 'auth/auth_gate.dart';
 import 'firebase_options.dart';
-import 'home/home_page.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -14,12 +13,9 @@ Future<void> main() async {
   runApp(const UsTogetherApp());
 }
 
-final _journal = mockJournal();
-
 final _router = GoRouter(
   routes: [
-    GoRoute(path: '/', builder: (_, _) => HomePage(journal: _journal, meId: 'hkha')),
-    GoRoute(path: '/dev', builder: (_, _) => const DevPage()),
+    GoRoute(path: '/', builder: (_, _) => const AuthGate()),
   ],
 );
 
@@ -32,6 +28,9 @@ class UsTogetherApp extends StatelessWidget {
       title: 'us-together',
       theme: buildAppTheme(),
       routerConfig: _router,
+      locale: const Locale('vi'),
+      supportedLocales: const [Locale('vi')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       debugShowCheckedModeBanner: false,
     );
   }

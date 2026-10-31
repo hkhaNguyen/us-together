@@ -1,7 +1,7 @@
-import '../theme/tokens.dart';
-import 'models.dart';
+import 'package:us_together/theme/tokens.dart';
+import 'package:us_together/data/models.dart';
 
-/// Placeholder content for building the UI before Firestore is wired in.
+/// Sample journal for tests.
 /// Titles and notes are stand-ins; birthdays only matter by day and month.
 Journal mockJournal() {
   const hkha = Person(id: 'hkha', name: 'hkha', color: Sakura.c5);

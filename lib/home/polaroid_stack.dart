@@ -10,13 +10,13 @@ import 'timeline.dart';
 /// `<Polaroid>` from the component spec: loose photos of one day, stacked
 /// with a 6px offset, "×N" when there are several.
 class PolaroidStack extends StatelessWidget {
-  const PolaroidStack({super.key, required this.entry, required this.tape, required this.onTap});
+  const PolaroidStack({super.key, required this.entry, required this.tape, this.onTap});
 
   final PhotoStackEntry entry;
 
   /// Tape fades in after the polaroid lands.
   final Animation<double> tape;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   static const width = 112.0;
   static const _pad = 7.0;
@@ -32,7 +32,7 @@ class PolaroidStack extends StatelessWidget {
     const backs = [(Offset(6, 8), -7.0), (Offset(-5, 12), 5.0)];
 
     return Semantics(
-      button: true,
+      button: onTap != null,
       label: caption.isEmpty ? 'Ảnh' : 'Ảnh: $caption',
       excludeSemantics: true,
       child: GestureDetector(

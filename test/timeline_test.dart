@@ -1,9 +1,11 @@
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:us_together/data/mock_journal.dart';
+import 'package:us_together/data/models.dart';
 import 'package:us_together/data/vi_format.dart';
 import 'package:us_together/home/timeline.dart';
 import 'package:us_together/home/timeline_layout.dart';
+
+import 'mock_journal.dart';
 
 /// Test-font stand-in for MomentCard.titleStyle (Google Fonts can't load here).
 const titleStyle = TextStyle(fontSize: 15, height: 1.2);
@@ -13,7 +15,13 @@ void main() {
 
   group('journal', () {
     test('days together matches the design: 1.462 on 31/10/2026', () {
-      expect(thousands(journal.daysTogether(DateTime(2026, 10, 31))), '1.462');
+      expect(thousands(journal.daysTogether(DateTime(2026, 10, 31))!), '1.462');
+    });
+
+    test('no count before the start date is set; unknown authors don\'t crash', () {
+      final empty = Journal(people: const [], moments: const [], photos: const [], entries: const [], anniversaries: const []);
+      expect(empty.daysTogether(DateTime(2026, 10, 31)), isNull);
+      expect(empty.person('someone@example.com').name, '?');
     });
 
     test('upcoming: nearest yearly date, today counts as 0', () {
