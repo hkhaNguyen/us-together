@@ -34,6 +34,22 @@ ThemeData buildAppTheme() {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.card)),
       textStyle: GoogleFonts.beVietnamPro(fontSize: 15, color: Paper.c8),
     ),
+    // Paper field with an ink underline, as on the add sheets.
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Paper.c3,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      hintStyle: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.w300, color: Paper.c7),
+      enabledBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: Paper.c6, width: 1.5),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      focusedBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: Paper.c8, width: 2),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+    ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: Paper.c8,
       contentTextStyle: GoogleFonts.beVietnamPro(fontSize: 14, color: Paper.c1),

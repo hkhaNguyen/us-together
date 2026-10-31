@@ -112,6 +112,11 @@ class Journal {
     return start == null ? null : daysBetween(start.date, today);
   }
 
+  /// The anniversary that falls on [day], if any.
+  Anniversary? anniversaryOn(DateTime day) => anniversaries
+      .where((a) => a.date.month == day.month && a.date.day == day.day && (a.yearly || a.date.year == day.year))
+      .firstOrNull;
+
   /// The nearest anniversary from [today] on (today itself counts), or null.
   ({Anniversary anniversary, int days})? upcoming(DateTime today) {
     ({Anniversary anniversary, int days})? best;

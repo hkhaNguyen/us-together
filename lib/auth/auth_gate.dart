@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
+import '../add/photo_pipeline.dart';
 import '../data/journal_store.dart';
 import '../home/home_page.dart';
 import '../theme/app_theme.dart';
@@ -38,7 +40,7 @@ class _JournalGate extends StatefulWidget {
 }
 
 class _JournalGateState extends State<_JournalGate> {
-  final _store = JournalStore(FirebaseFirestore.instance);
+  final _store = JournalStore(FirebaseFirestore.instance, PhotoUploader(FirebaseStorage.instance));
   late final Stream<Session> _session = _store.watch(widget.email);
 
   @override
@@ -60,7 +62,7 @@ class _JournalGateState extends State<_JournalGate> {
         return HomePage(
           journal: session.journal,
           meId: session.me,
-          onSetStartDate: _store.setStartDate,
+          store: _store,
           onSignOut: FirebaseAuth.instance.signOut,
         );
       },

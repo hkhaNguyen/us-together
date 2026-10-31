@@ -3,6 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../add/add_moment_sheet.dart';
+import '../add/add_photos_sheet.dart';
+import '../add/sheet_frame.dart';
+import '../data/journal_store.dart';
 import '../data/models.dart';
 import '../data/vi_format.dart';
 import '../theme/app_theme.dart';
@@ -22,7 +26,7 @@ class HomePage extends StatefulWidget {
     super.key,
     required this.journal,
     required this.meId,
-    required this.onSetStartDate,
+    required this.store,
     required this.onSignOut,
   });
 
@@ -30,9 +34,7 @@ class HomePage extends StatefulWidget {
 
   /// Who is using this device.
   final String meId;
-
-  /// Saves "ngày bắt đầu yêu", the source of the days-together count.
-  final Future<void> Function(DateTime date) onSetStartDate;
+  final JournalStore store;
   final Future<void> Function() onSignOut;
 
   @override
@@ -43,12 +45,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   static const _maxWidth = 480.0;
 
   final _scroll = ScrollController();
+  final _plusFloating = ValueNotifier(false);
   late final _bloom = AnimationController(vsync: this, duration: SakuraFlower.openDuration);
+
+  /// The flower's center appears last in the bloom; the "+" with it.
+  late final _plusIn = CurvedAnimation(parent: _bloom, curve: const Interval(.67, 1));
   late List<TimelineEntry> _entries = buildTimeline(widget.journal);
 
   @override
   void initState() {
     super.initState();
+    // Once the flower scrolls away, the "+" floats bottom-right instead.
+    _scroll.addListener(() => _plusFloating.value = _scroll.offset > TimelineMetrics.flowerY + TimelineMetrics.flowerSize / 2);
     _bloom.forward();
     // Card heights are measured with the real title font; lay out again
     // once it has downloaded.
@@ -72,19 +80,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void dispose() {
     _scroll.dispose();
+    _plusFloating.dispose();
+    _plusIn.dispose();
     _bloom.dispose();
     super.dispose();
   }
 
-  Future<void> _openProfileMenu(BuildContext button) async {
+  Future<T?> _menuAt<T>(BuildContext button, List<PopupMenuEntry<T>> items) {
     final overlay = Overlay.of(button).context.findRenderObject()! as RenderBox;
     final box = button.findRenderObject()! as RenderBox;
     final rect = box.localToGlobal(Offset.zero, ancestor: overlay) & box.size;
-    final choice = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(rect, Offset.zero & overlay.size),
-      items: const [PopupMenuItem(value: 'sign-out', child: Text('Đăng xuất'))],
-    );
+    return showMenu<T>(context: context, position: RelativeRect.fromRect(rect, Offset.zero & overlay.size), items: items);
+  }
+
+  Future<void> _openAddMenu(BuildContext button) async {
+    final choice = await _menuAt(button, const [
+      PopupMenuItem(value: 'photos', child: _AddChoice(icon: Icons.photo_outlined, title: 'Thêm ảnh', hint: 'nhanh, nhiều ảnh, mỗi ảnh một tiêu đề')),
+      PopupMenuItem(value: 'moment', child: _AddChoice(icon: Icons.article_outlined, title: 'Thêm dịp', hint: 'ảnh + tiêu đề + bài viết')),
+    ]);
+    if (!mounted) return;
+    switch (choice) {
+      case 'photos':
+        await showPaperSheet(context, AddPhotosSheet(store: widget.store, me: widget.meId));
+      case 'moment':
+        await showPaperSheet(context, AddMomentSheet(store: widget.store, journal: widget.journal, me: widget.meId));
+    }
+  }
+
+  Future<void> _openProfileMenu(BuildContext button) async {
+    final choice = await _menuAt(button, const [PopupMenuItem(value: 'sign-out', child: Text('Đăng xuất'))]);
     if (choice == 'sign-out') await widget.onSignOut();
   }
 
@@ -97,7 +121,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       firstDate: DateTime(1990),
       lastDate: today,
     );
-    if (date != null) await widget.onSetStartDate(date);
+    if (date != null) await widget.store.setStartDate(date);
   }
 
   @override
@@ -110,6 +134,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final textScaler = MediaQuery.textScalerOf(context);
 
     return Scaffold(
+      floatingActionButton: ValueListenableBuilder(
+        valueListenable: _plusFloating,
+        builder: (context, floating, child) => IgnorePointer(
+          ignoring: !floating,
+          child: AnimatedScale(scale: floating ? 1 : 0, duration: Motion.dur2, curve: Motion.easePaper, child: child),
+        ),
+        child: _PlusButton(size: 56, color: Sakura.c5, onPressed: _openAddMenu),
+      ),
       body: LayoutBuilder(builder: (context, constraints) {
         final width = math.min(constraints.maxWidth, _maxWidth);
         final layout = layoutTimeline(_entries, width, textScaler: textScaler, momentTitleStyle: MomentCard.titleStyle);
@@ -144,6 +176,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     left: m.stemX - half,
                     top: fy - half,
                     child: SakuraFlower(bloom: _bloom, size: TimelineMetrics.flowerSize),
+                  ),
+                  Positioned(
+                    left: m.stemX - 24,
+                    top: fy - 24,
+                    child: FadeTransition(
+                      opacity: _plusIn,
+                      child: _PlusButton(size: 28, color: Sakura.c6, onPressed: _openAddMenu),
+                    ),
                   ),
                   if (upcoming != null)
                     Positioned(
@@ -235,6 +275,64 @@ class _Header extends StatelessWidget {
             ),
             icon: Text(me.name.characters.first, style: AppText.title.copyWith(color: Paper.c1, fontWeight: FontWeight.w400)),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The "+" — flower center (28px) at the top, floating (56px) further down.
+/// The tap area is at least 48px either way.
+class _PlusButton extends StatelessWidget {
+  const _PlusButton({required this.size, required this.color, required this.onPressed});
+
+  final double size;
+  final Color color;
+  final ValueChanged<BuildContext> onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Builder(
+      builder: (button) => IconButton(
+        tooltip: 'Thêm mới',
+        onPressed: () => onPressed(button),
+        style: IconButton.styleFrom(fixedSize: Size.square(math.max(48, size)), padding: EdgeInsets.zero),
+        icon: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Sakura.c7, width: 1.5),
+            boxShadow: Shadows.pink,
+          ),
+          child: Icon(Icons.add, size: size * .57, color: const Color(0xFFFFF5F8)),
+        ),
+      ),
+    );
+  }
+}
+
+/// A row of the "+" menu: icon, bold name, one-line hint.
+class _AddChoice extends StatelessWidget {
+  const _AddChoice({required this.icon, required this.title, required this.hint});
+
+  final IconData icon;
+  final String title;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Sakura.c7),
+        const SizedBox(width: Space.s3),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: AppText.body.copyWith(fontSize: 14, fontWeight: FontWeight.w500)),
+            Text(hint, style: AppText.label.copyWith(fontSize: 11, letterSpacing: 0, fontWeight: FontWeight.w400)),
+          ],
         ),
       ],
     );

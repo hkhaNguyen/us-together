@@ -20,7 +20,15 @@ class PhotoBox extends StatelessWidget {
         color: Paper.c4,
         child: url == null
             ? empty
-            : Image.network(url!, fit: BoxFit.cover, width: double.infinity, height: double.infinity, errorBuilder: (_, _, _) => empty),
+            : Image.network(
+                url!,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                // On web, falls back to an <img> element if the bucket has no CORS.
+                webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                errorBuilder: (_, _, _) => empty,
+              ),
       ),
     );
   }

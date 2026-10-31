@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
+import '../add/photo_pipeline.dart';
 import '../theme/tokens.dart';
 import 'models.dart';
 
@@ -16,13 +18,15 @@ typedef Session = ({Journal journal, String me});
 ///                        list for the rules; several emails per person
 ///   moments/{id}         date, title, body, photoIds, coverPhotoId, addedBy,
 ///                        anniversaryId, createdAt
-///   photos/{id}          takenAt, addedBy, title, momentId, thumbUrl, createdAt
+///   photos/{id}          takenAt, addedBy, title, momentId, thumbUrl, fullUrl,
+///                        w, h, createdAt — files under photos/{id}/ in Storage
 ///   entries/{id}         momentId, author, text, createdAt
 ///   anniversaries/{id}   title, date, yearly, isStart
 class JournalStore {
-  JournalStore(this._db);
+  JournalStore(this._db, this._uploader);
 
   final FirebaseFirestore _db;
+  final PhotoUploader _uploader;
 
   static const _collections = ['members', 'people', 'moments', 'photos', 'entries', 'anniversaries'];
 
@@ -59,6 +63,69 @@ class JournalStore {
         'yearly': true,
         'isStart': true,
       });
+
+  /// Loose photos, each with its own date and title. [onProgress] gets the
+  /// number uploaded so far.
+  Future<void> addPhotos(List<PickedPhoto> photos, {required String by, ValueChanged<int>? onProgress}) async {
+    final batch = _db.batch();
+    await _uploadAll(photos, batch, by: by, onProgress: onProgress);
+    await batch.commit();
+  }
+
+  /// A moment and its photos, in the order given; [cover] indexes [photos].
+  Future<void> addMoment({
+    required List<PickedPhoto> photos,
+    required int cover,
+    required DateTime date,
+    required String title,
+    required String body,
+    required String? anniversaryId,
+    required String by,
+    ValueChanged<int>? onProgress,
+  }) async {
+    final moment = _db.collection('moments').doc();
+    final batch = _db.batch();
+    final ids = await _uploadAll(photos, batch, by: by, momentId: moment.id, onProgress: onProgress);
+    batch.set(moment, {
+      'date': Timestamp.fromDate(date),
+      'title': title,
+      'body': body,
+      'photoIds': ids,
+      'coverPhotoId': ids.isEmpty ? null : ids[cover],
+      'addedBy': by,
+      'anniversaryId': anniversaryId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
+  /// Uploads every file first and only queues the documents in [batch], so a
+  /// dropped connection never leaves half a moment visible to the other one.
+  Future<List<String>> _uploadAll(
+    List<PickedPhoto> photos,
+    WriteBatch batch, {
+    required String by,
+    String? momentId,
+    ValueChanged<int>? onProgress,
+  }) async {
+    final ids = <String>[];
+    for (final p in photos) {
+      final doc = _db.collection('photos').doc();
+      final files = await _uploader.upload(doc.id, p);
+      final title = p.title.trim();
+      batch.set(doc, {
+        ...files,
+        'takenAt': Timestamp.fromDate(p.takenAt),
+        'addedBy': by,
+        'title': title.isEmpty ? null : title,
+        'momentId': momentId,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      ids.add(doc.id);
+      onProgress?.call(ids.length);
+    }
+    return ids;
+  }
 
   static Journal _journal(List<List<QueryDocumentSnapshot<Map<String, dynamic>>>> docs) {
     final [people, moments, photos, entries, anniversaries] = docs;
