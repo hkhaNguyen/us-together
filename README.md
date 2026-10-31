@@ -10,6 +10,8 @@
   <a href="https://github.com/hkhaNguyen/us-together/releases">Android APK</a>
 </p>
 
+<p align="center"><b>English</b> · <a href="README.vi.md">Tiếng Việt</a></p>
+
 Every photo and moment the two of you add sprouts on a branch of one stem,
 newest at the top under the flower, oldest down by the pot. The interface is
 in Vietnamese.
