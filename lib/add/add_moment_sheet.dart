@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/journal_store.dart';
@@ -7,7 +8,7 @@ import '../theme/tokens.dart';
 import 'photo_pipeline.dart';
 import 'sheet_frame.dart';
 
-/// 04 · Thêm dịp: photos, date, anniversary, title and the story.
+/// 04 · Thêm kỷ niệm (a moment): photos, date, anniversary, title and the story.
 class AddMomentSheet extends StatefulWidget {
   const AddMomentSheet({super.key, required this.store, required this.journal, required this.me});
 
@@ -57,14 +58,24 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
   }
 
   Future<void> _pick() async {
-    setState(() => _picking = true);
-    final picked = await pickPhotos();
-    if (!mounted) return;
+    // On the web a dismissed file dialog may never report back, so the tile
+    // isn't locked while waiting there.
     setState(() {
-      _picking = false;
-      _photos.addAll(picked);
-      if (!_dateTouched && _photos.isNotEmpty) _setDate(_photos.first.takenAt, byHand: false);
+      _picking = !kIsWeb;
+      _error = null;
     });
+    try {
+      final picked = await pickPhotos();
+      if (!mounted) return;
+      setState(() {
+        _photos.addAll(picked);
+        if (!_dateTouched && _photos.isNotEmpty) _setDate(_photos.first.takenAt, byHand: false);
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = 'chưa mở được ảnh ($e)');
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
   }
 
   void _remove(int i) => setState(() {
@@ -108,7 +119,7 @@ class _AddMomentSheetState extends State<AddMomentSheet> {
             : 'đang tải ảnh ${uploaded + 1}/${_photos.length}…';
 
     return SheetFrame(
-      title: 'Thêm dịp',
+      title: 'Thêm kỷ niệm',
       action: 'Lưu',
       onAction: _title.text.trim().isEmpty || _picking ? null : _save,
       status: status,

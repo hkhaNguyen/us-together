@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/journal_store.dart';
@@ -27,21 +28,31 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _pick(closeIfNone: true));
+    // Browsers only open a file dialog from a real tap, so on the web the
+    // picker waits for the button.
+    if (!kIsWeb) WidgetsBinding.instance.addPostFrameCallback((_) => _pick(closeIfNone: true));
   }
 
   Future<void> _pick({bool closeIfNone = false}) async {
-    setState(() => _picking = true);
-    final picked = await pickPhotos();
-    if (!mounted) return;
-    if (picked.isEmpty && _photos.isEmpty && closeIfNone) {
-      Navigator.pop(context);
-      return;
-    }
+    // On the web a dismissed dialog may never report back, so the button
+    // isn't locked while waiting there.
     setState(() {
-      _picking = false;
-      _photos.addAll(picked);
+      _picking = !kIsWeb;
+      _error = null;
     });
+    try {
+      final picked = await pickPhotos();
+      if (!mounted) return;
+      if (picked.isEmpty && _photos.isEmpty && closeIfNone) {
+        Navigator.pop(context);
+        return;
+      }
+      setState(() => _photos.addAll(picked));
+    } catch (e) {
+      if (mounted) setState(() => _error = 'chưa mở được ảnh ($e)');
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
   }
 
   Future<void> _save() async {
@@ -82,7 +93,7 @@ class _AddPhotosSheetState extends State<AddPhotosSheet> {
         OutlinedButton.icon(
           onPressed: _picking || uploaded != null ? null : _pick,
           icon: const Icon(Icons.add, size: 18),
-          label: Text(_picking ? 'đang mở thư viện…' : 'chọn thêm ảnh'),
+          label: Text(_picking ? 'đang mở thư viện…' : (_photos.isEmpty ? 'chọn ảnh' : 'chọn thêm ảnh')),
           style: OutlinedButton.styleFrom(
             foregroundColor: Paper.c8,
             side: const BorderSide(color: Paper.c6, style: BorderStyle.solid),

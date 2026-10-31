@@ -26,6 +26,15 @@ void main() {
       expect(birthday.titleOn(DateTime(2026, 11, 23)), birthday.title);
     });
 
+    test('a moment\'s photos start with the cover; the first person sits left', () {
+      final src = journal.moments.first;
+      final m = Moment(id: src.id, date: src.date, title: src.title, addedBy: src.addedBy, photoIds: src.photoIds, coverPhotoId: src.photoIds[2]);
+      final j = Journal(people: journal.people, moments: [m], photos: journal.photos, entries: const [], anniversaries: const []);
+      expect(j.photosOf(m).map((p) => p.id), [m.photoIds[2], m.photoIds[0], m.photoIds[1], ...m.photoIds.skip(3)]);
+      expect(journal.isLeftSide('hkha'), isTrue);
+      expect(journal.isLeftSide('xuka'), isFalse);
+    });
+
     test('no count before the start date is set; unknown authors don\'t crash', () {
       final empty = Journal(people: const [], moments: const [], photos: const [], entries: const [], anniversaries: const []);
       expect(empty.daysTogether(DateTime(2026, 10, 31)), isNull);

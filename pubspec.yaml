@@ -17,9 +17,11 @@ dependencies:
   flutter_image_compress: ^2.5.1
   flutter_localizations:
     sdk: flutter
+  gal: ^2.3.3
   go_router: ^18.1.2
   google_fonts: ^8.2.1
   image_picker: ^1.2.4
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:

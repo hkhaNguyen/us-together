@@ -20,9 +20,23 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // The person (people/{id}) the signed-in email belongs to.
+    function me() {
+      return get(/databases/$(database)/documents/members/$(request.auth.token.email)).data.person;
+    }
+
+    // Cảm nghĩ: anyone writes their own; only the author edits or deletes.
+    match /entries/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && request.resource.data.author == me();
+      allow update: if isMember() && resource.data.author == me()
+        && request.resource.data.author == resource.data.author;
+      allow delete: if isMember() && resource.data.author == me();
+    }
+
     match /{collection}/{id} {
       allow read, write: if isMember()
-        && collection in ['moments', 'photos', 'entries', 'anniversaries'];
+        && collection in ['moments', 'photos', 'anniversaries'];
     }
   }
 }

@@ -71,7 +71,7 @@ class MomentCard extends StatelessWidget {
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            PhotoBox(url: e.cover?.thumbUrl, radius: Radii.photo),
+                            Hero(tag: 'cover-${e.moment.id}', child: PhotoBox(url: e.cover?.thumbUrl, radius: Radii.photo)),
                             if (e.photoCount > 1) Positioned(right: 6, bottom: 6, child: _CountChip('+${e.photoCount - 1}')),
                           ],
                         ),

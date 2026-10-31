@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,6 +10,8 @@ import '../add/sheet_frame.dart';
 import '../data/journal_store.dart';
 import '../data/models.dart';
 import '../data/vi_format.dart';
+import '../moment/moment_page.dart';
+import '../viewer/photo_viewer.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../widgets/sakura_flower.dart';
@@ -27,6 +30,7 @@ class HomePage extends StatefulWidget {
     required this.journal,
     required this.meId,
     required this.store,
+    required this.session,
     required this.onSignOut,
   });
 
@@ -35,6 +39,9 @@ class HomePage extends StatefulWidget {
   /// Who is using this device.
   final String meId;
   final JournalStore store;
+
+  /// The live journal, handed to pages opened from here.
+  final ValueListenable<Session?> session;
   final Future<void> Function() onSignOut;
 
   @override
@@ -95,8 +102,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Future<void> _openAddMenu(BuildContext button) async {
     final choice = await _menuAt(button, const [
-      PopupMenuItem(value: 'photos', child: _AddChoice(icon: Icons.photo_outlined, title: 'Thêm ảnh', hint: 'nhanh, nhiều ảnh, mỗi ảnh một tiêu đề')),
-      PopupMenuItem(value: 'moment', child: _AddChoice(icon: Icons.article_outlined, title: 'Thêm dịp', hint: 'ảnh + tiêu đề + bài viết')),
+      PopupMenuItem(value: 'photos', child: _AddChoice(icon: Icons.photo_outlined, title: 'Thêm ảnh')),
+      PopupMenuItem(value: 'moment', child: _AddChoice(icon: Icons.article_outlined, title: 'Thêm kỷ niệm')),
     ]);
     if (!mounted) return;
     switch (choice) {
@@ -106,6 +113,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         await showPaperSheet(context, AddMomentSheet(store: widget.store, journal: widget.journal, me: widget.meId));
     }
   }
+
+  void _open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
 
   Future<void> _openProfileMenu(BuildContext button) async {
     final choice = await _menuAt(button, const [PopupMenuItem(value: 'sign-out', child: Text('Đăng xuất'))]);
@@ -168,8 +177,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       placed: p,
                       scroll: _scroll,
                       builder: (context, tape) => switch (p.entry) {
-                        final MomentEntry e => MomentCard(entry: e),
-                        final PhotoStackEntry e => PolaroidStack(entry: e, tape: tape),
+                        final MomentEntry e => MomentCard(entry: e, onTap: () => _open(MomentPage(session: widget.session, store: widget.store, momentId: e.moment.id))),
+                        final PhotoStackEntry e => PolaroidStack(
+                            entry: e,
+                            tape: tape,
+                            onTap: () => _open(PhotoViewer(session: widget.session, store: widget.store, photoIds: [for (final p in e.photos) p.id])),
+                          ),
                       },
                     ),
                   Positioned(
@@ -313,13 +326,12 @@ class _PlusButton extends StatelessWidget {
   }
 }
 
-/// A row of the "+" menu: icon, bold name, one-line hint.
+/// A row of the "+" menu: icon and name.
 class _AddChoice extends StatelessWidget {
-  const _AddChoice({required this.icon, required this.title, required this.hint});
+  const _AddChoice({required this.icon, required this.title});
 
   final IconData icon;
   final String title;
-  final String hint;
 
   @override
   Widget build(BuildContext context) {
@@ -327,13 +339,7 @@ class _AddChoice extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: Sakura.c7),
         const SizedBox(width: Space.s3),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: AppText.body.copyWith(fontSize: 14, fontWeight: FontWeight.w500)),
-            Text(hint, style: AppText.label.copyWith(fontSize: 11, letterSpacing: 0, fontWeight: FontWeight.w400)),
-          ],
-        ),
+        Text(title, style: AppText.body.copyWith(fontSize: 14, fontWeight: FontWeight.w500)),
       ],
     );
   }

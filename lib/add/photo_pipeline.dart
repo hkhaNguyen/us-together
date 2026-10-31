@@ -91,6 +91,9 @@ class PhotoUploader {
     };
   }
 
+  /// The stored file behind a download URL.
+  Future<Uint8List?> download(String url) => _storage.refFromURL(url).getData(30 * 1024 * 1024);
+
   static Future<(int, int)> _size(Uint8List bytes) async {
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();

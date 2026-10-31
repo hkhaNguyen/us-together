@@ -52,7 +52,7 @@ class PolaroidStack extends StatelessWidget {
                 Shadows.paper,
                 child: Column(
                   children: [
-                    AspectRatio(aspectRatio: 1, child: PhotoBox(url: photos.first.thumbUrl)),
+                    AspectRatio(aspectRatio: 1, child: Hero(tag: 'photo-${photos.first.id}', child: PhotoBox(url: photos.first.thumbUrl))),
                     const SizedBox(height: 5),
                     Expanded(
                       child: Text(

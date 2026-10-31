@@ -99,6 +99,50 @@ class JournalStore {
     await batch.commit();
   }
 
+  DocumentReference<Map<String, dynamic>> _photo(String id) => _db.collection('photos').doc(id);
+  DocumentReference<Map<String, dynamic>> _moment(String id) => _db.collection('moments').doc(id);
+
+  Future<void> setPhotoTitle(String photoId, String title) =>
+      _photo(photoId).update({'title': title.trim().isEmpty ? null : title.trim()});
+
+  Future<void> setCover(String momentId, String photoId) => _moment(momentId).update({'coverPhotoId': photoId});
+
+  /// A loose photo joins a moment and leaves the stem.
+  Future<void> attachPhoto(String photoId, String momentId) => (_db.batch()
+        ..update(_photo(photoId), {'momentId': momentId})
+        ..update(_moment(momentId), {
+          'photoIds': FieldValue.arrayUnion([photoId]),
+        }))
+      .commit();
+
+  /// The photo goes back on the stem as a loose one; if it was the cover, the
+  /// next photo takes over.
+  Future<void> detachPhoto(String photoId, Moment moment) {
+    final rest = moment.photoIds.where((id) => id != photoId).toList();
+    return (_db.batch()
+          ..update(_photo(photoId), {'momentId': null})
+          ..update(_moment(moment.id), {
+            'photoIds': rest,
+            if (moment.coverPhotoId == photoId) 'coverPhotoId': rest.firstOrNull,
+          }))
+        .commit();
+  }
+
+  /// Client time, not a server timestamp: the bubble needs a date the moment
+  /// it appears.
+  Future<void> addEntry(String momentId, String text, {required String by}) => _db.collection('entries').add({
+        'momentId': momentId,
+        'author': by,
+        'text': text.trim(),
+        'createdAt': Timestamp.now(),
+      });
+
+  Future<void> updateEntry(String entryId, String text) => _db.collection('entries').doc(entryId).update({'text': text.trim()});
+
+  Future<void> deleteEntry(String entryId) => _db.collection('entries').doc(entryId).delete();
+
+  Future<Uint8List?> downloadPhoto(Photo photo) => _uploader.download(photo.fullUrl ?? photo.thumbUrl!);
+
   /// Uploads every file first and only queues the documents in [batch], so a
   /// dropped connection never leaves half a moment visible to the other one.
   Future<List<String>> _uploadAll(
@@ -129,7 +173,8 @@ class JournalStore {
 
   static Journal _journal(List<List<QueryDocumentSnapshot<Map<String, dynamic>>>> docs) {
     final [people, moments, photos, entries, anniversaries] = docs;
-    DateTime date(Object? v) => (v as Timestamp).toDate();
+    // A server timestamp is still null in the local echo of a fresh write.
+    DateTime date(Object? v) => v is Timestamp ? v.toDate() : DateTime.now();
 
     return Journal(
       people: [
@@ -156,6 +201,11 @@ class JournalStore {
             takenAt: date(d['takenAt']),
             addedBy: d['addedBy'] as String,
             thumbUrl: d.data()['thumbUrl'] as String?,
+            fullUrl: d.data()['fullUrl'] as String?,
+            aspectRatio: switch ((d.data()['w'], d.data()['h'])) {
+              (final num w, final num h) when w > 0 && h > 0 => w / h,
+              _ => 1,
+            },
             title: d.data()['title'] as String?,
             momentId: d.data()['momentId'] as String?,
           ),

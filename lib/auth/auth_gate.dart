@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -41,31 +43,49 @@ class _JournalGate extends StatefulWidget {
 
 class _JournalGateState extends State<_JournalGate> {
   final _store = JournalStore(FirebaseFirestore.instance, PhotoUploader(FirebaseStorage.instance));
-  late final Stream<Session> _session = _store.watch(widget.email);
+
+  /// One subscription for the whole app: pages pushed on top (a moment, the
+  /// photo viewer) listen to this too, so they update live.
+  final _session = ValueNotifier<Session?>(null);
+  late final StreamSubscription<Session> _subscription;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscription = _store.watch(widget.email).listen(
+          (s) => _session.value = s,
+          onError: (Object e) => setState(() => _error = e),
+        );
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    _session.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: _session,
-      builder: (context, snapshot) {
-        final error = snapshot.error;
-        // The rules only let accounts listed under members/ read anything.
-        if (error is FirebaseException && error.code == 'permission-denied') {
-          return _Message(
-            text: 'Tài khoản ${widget.email} chưa có trong sổ.',
-            action: 'Dùng tài khoản khác',
-          );
-        }
-        if (error != null) return _Message(text: 'Không tải được sổ: $error', action: 'Đăng xuất');
-        final session = snapshot.data;
-        if (session == null) return const _Splash();
-        return HomePage(
-          journal: session.journal,
-          meId: session.me,
-          store: _store,
-          onSignOut: FirebaseAuth.instance.signOut,
-        );
-      },
+    final error = _error;
+    // The rules only let accounts listed under members/ read anything.
+    if (error is FirebaseException && error.code == 'permission-denied') {
+      return _Message(text: 'Tài khoản ${widget.email} chưa có trong sổ.', action: 'Dùng tài khoản khác');
+    }
+    if (error != null) return _Message(text: 'Không tải được sổ: $error', action: 'Đăng xuất');
+
+    return ValueListenableBuilder(
+      valueListenable: _session,
+      builder: (context, session, _) => session == null
+          ? const _Splash()
+          : HomePage(
+              journal: session.journal,
+              meId: session.me,
+              store: _store,
+              session: _session,
+              onSignOut: FirebaseAuth.instance.signOut,
+            ),
     );
   }
 }

@@ -18,6 +18,8 @@ class Photo {
     required this.takenAt,
     required this.addedBy,
     this.thumbUrl,
+    this.fullUrl,
+    this.aspectRatio = 1,
     this.title,
     this.momentId,
   });
@@ -26,6 +28,10 @@ class Photo {
   final DateTime takenAt;
   final String addedBy;
   final String? thumbUrl;
+  final String? fullUrl;
+
+  /// Width / height, known before the image loads so nothing jumps.
+  final double aspectRatio;
 
   /// Free-form, any length; polaroids show one line, the viewer all of it.
   final String? title;
@@ -34,7 +40,7 @@ class Photo {
   final String? momentId;
 }
 
-/// A "dịp": photos + title + post.
+/// A moment ("kỷ niệm" in the app): photos + title + post.
 class Moment {
   const Moment({
     required this.id,
@@ -102,6 +108,19 @@ class Journal {
   final List<Photo> photos;
   final List<Entry> entries;
   final List<Anniversary> anniversaries;
+
+  Photo? photo(String id) => photos.where((p) => p.id == id).firstOrNull;
+  Moment? moment(String id) => moments.where((m) => m.id == id).firstOrNull;
+
+  /// A moment's photos with the cover first, then in the order they were added.
+  List<Photo> photosOf(Moment m) {
+    final ids = [?m.coverPhotoId, ...m.photoIds.where((id) => id != m.coverPhotoId)];
+    return [for (final id in ids) ?photo(id)];
+  }
+
+  /// Who sits on which side of the reflections: the first person (by id) on
+  /// the left, as in the design.
+  bool isLeftSide(String personId) => people.isEmpty || personId == (people.map((p) => p.id).toList()..sort()).first;
 
   /// A member removed from the console still shows up, just unnamed.
   Person person(String id) => people.firstWhere((p) => p.id == id, orElse: () => Person(id: id, name: '?', color: const Color(0xFFB99A8A)));
