@@ -20,6 +20,7 @@ import '../viewer/photo_viewer.dart';
 import '../widgets/avatar_cropper.dart';
 import '../widgets/paper_bits.dart';
 import '../widgets/sakura_flower.dart';
+import 'anniversary_day.dart';
 import 'moment_card.dart';
 import 'polaroid_stack.dart';
 import 'sprout.dart';
@@ -53,24 +54,44 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   /// Wide enough for two columns of cards around the centred stem.
   static const _maxWidth = 560.0;
 
   final _scroll = ScrollController();
   final _plusFloating = ValueNotifier(false);
-  late final _bloom = AnimationController(vsync: this, duration: SakuraFlower.openDuration);
+  late final _bloom = AnimationController(
+    vsync: this,
+    duration: SakuraFlower.openDuration,
+  );
 
   /// The flower's center appears last in the bloom; the "+" with it.
-  late final _plusIn = CurvedAnimation(parent: _bloom, curve: const Interval(.67, 1));
+  late final _plusIn = CurvedAnimation(
+    parent: _bloom,
+    curve: const Interval(.67, 1),
+  );
   late List<TimelineEntry> _entries = buildTimeline(widget.journal);
+
+  /// Heart, halo and confetti on an anniversary; replayed by tapping the flower.
+  late final _celebrate = AnimationController(
+    vsync: this,
+    duration: AnniversaryDay.duration,
+  );
+
+  bool get _isAnniversary =>
+      widget.journal.anniversariesOn(DateTime.now()).isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     // Once the flower scrolls away, the "+" floats bottom-right instead.
-    _scroll.addListener(() => _plusFloating.value = _scroll.offset > TimelineMetrics.flowerY + TimelineMetrics.flowerSize / 2);
+    _scroll.addListener(
+      () => _plusFloating.value =
+          _scroll.offset >
+          TimelineMetrics.flowerY + TimelineMetrics.flowerSize / 2,
+    );
     _bloom.forward();
+    if (_isAnniversary) _celebrate.forward();
     // Card heights are measured with the real title font; lay out again
     // once it has downloaded.
     GoogleFonts.pendingFonts([MomentCard.titleStyle]).then((_) {
@@ -81,7 +102,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) _bloom.value = 1;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _bloom.value = 1;
+      _celebrate.value = 1; // heart and halo still, no confetti
+    }
   }
 
   @override
@@ -96,33 +120,66 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _plusFloating.dispose();
     _plusIn.dispose();
     _bloom.dispose();
+    _celebrate.dispose();
     super.dispose();
   }
+
+  /// "Lưu lại hôm nay": a new moment dated today, its anniversary picked.
+  void _saveToday() => showPaperSheet(
+    context,
+    AddMomentSheet(
+      store: widget.store,
+      journal: widget.journal,
+      me: widget.meId,
+    ),
+  );
 
   Future<T?> _menuAt<T>(BuildContext button, List<PopupMenuEntry<T>> items) {
     final overlay = Overlay.of(button).context.findRenderObject()! as RenderBox;
     final box = button.findRenderObject()! as RenderBox;
     final rect = box.localToGlobal(Offset.zero, ancestor: overlay) & box.size;
-    return showMenu<T>(context: context, position: RelativeRect.fromRect(rect, Offset.zero & overlay.size), items: items);
+    return showMenu<T>(
+      context: context,
+      position: RelativeRect.fromRect(rect, Offset.zero & overlay.size),
+      items: items,
+    );
   }
 
   Future<void> _openAddMenu(BuildContext button) async {
     final choice = await _menuAt(button, const [
-      PopupMenuItem(value: 'photos', child: _AddChoice(icon: Icons.photo_outlined, title: 'Thêm ảnh')),
-      PopupMenuItem(value: 'moment', child: _AddChoice(icon: Icons.article_outlined, title: 'Thêm kỷ niệm')),
+      PopupMenuItem(
+        value: 'photos',
+        child: _AddChoice(icon: Icons.photo_outlined, title: 'Thêm ảnh'),
+      ),
+      PopupMenuItem(
+        value: 'moment',
+        child: _AddChoice(icon: Icons.article_outlined, title: 'Thêm kỷ niệm'),
+      ),
     ]);
     if (!mounted) return;
     switch (choice) {
       case 'photos':
-        await showPaperSheet(context, AddPhotosSheet(store: widget.store, me: widget.meId));
+        await showPaperSheet(
+          context,
+          AddPhotosSheet(store: widget.store, me: widget.meId),
+        );
       case 'moment':
-        await showPaperSheet(context, AddMomentSheet(store: widget.store, journal: widget.journal, me: widget.meId));
+        await showPaperSheet(
+          context,
+          AddMomentSheet(
+            store: widget.store,
+            journal: widget.journal,
+            me: widget.meId,
+          ),
+        );
     }
   }
 
-  void _open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  void _open(Widget page) =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
 
-  void _openAnniversaries() => _open(AnniversariesPage(session: widget.session, store: widget.store));
+  void _openAnniversaries() =>
+      _open(AnniversariesPage(session: widget.session, store: widget.store));
 
   Future<void> _openProfileMenu(BuildContext button) async {
     final choice = await _menuAt(button, const [
@@ -150,7 +207,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       if (picked == null || !mounted) return;
       final bytes = await Navigator.push<Uint8List>(
         context,
-        MaterialPageRoute(fullscreenDialog: true, builder: (_) => AvatarCropper(bytes: picked)),
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => AvatarCropper(bytes: picked),
+        ),
       );
       if (bytes == null) return;
       say('đang đổi ảnh đại diện…');
@@ -181,93 +241,193 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final upcoming = journal.upcoming(today);
     final safe = MediaQuery.paddingOf(context);
     final textScaler = MediaQuery.textScalerOf(context);
+    final celebrating = _isAnniversary;
 
     return Scaffold(
       floatingActionButton: ValueListenableBuilder(
         valueListenable: _plusFloating,
         builder: (context, floating, child) => IgnorePointer(
           ignoring: !floating,
-          child: AnimatedScale(scale: floating ? 1 : 0, duration: Motion.dur2, curve: Motion.easePaper, child: child),
+          child: AnimatedScale(
+            scale: floating ? 1 : 0,
+            duration: Motion.dur2,
+            curve: Motion.easePaper,
+            child: child,
+          ),
         ),
         child: _PlusButton(size: 56, color: Sakura.c5, onPressed: _openAddMenu),
       ),
-      body: LayoutBuilder(builder: (context, constraints) {
-        final width = math.min(constraints.maxWidth, _maxWidth);
-        final layout = layoutTimeline(_entries, width, textScaler: textScaler, momentTitleStyle: MomentCard.titleStyle);
-        final m = layout.metrics;
-        const fy = TimelineMetrics.flowerY;
-        const half = TimelineMetrics.flowerSize / 2;
+      body: Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = math.min(constraints.maxWidth, _maxWidth);
+              final layout = layoutTimeline(
+                _entries,
+                width,
+                textScaler: textScaler,
+                momentTitleStyle: MomentCard.titleStyle,
+              );
+              final m = layout.metrics;
+              const fy = TimelineMetrics.flowerY;
+              const half = TimelineMetrics.flowerSize / 2;
 
-        return SingleChildScrollView(
-          controller: _scroll,
-          child: Center(
-            child: SizedBox(
-              width: width,
-              height: layout.height,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  ..._paperGlow(m.stemX),
-                  Positioned.fill(child: CustomPaint(painter: StemPainter(layout))),
-                  for (final marker in layout.markers)
-                    Positioned(left: m.stemX + 10, top: marker.y, height: markerHeight, child: _MonthMarker(marker.month)),
-                  for (final p in layout.placed)
-                    Sprout(
-                      key: ValueKey(p.entry.id),
-                      placed: p,
-                      scroll: _scroll,
-                      builder: (context, tape) => switch (p.entry) {
-                        final MomentEntry e => MomentCard(entry: e, onTap: () => _open(MomentPage(session: widget.session, store: widget.store, momentId: e.moment.id))),
-                        final PhotoStackEntry e => PolaroidStack(
-                            entry: e,
-                            tape: tape,
-                            onTap: () => _open(PhotoViewer(session: widget.session, store: widget.store, photoIds: [for (final p in e.photos) p.id])),
+              return SingleChildScrollView(
+                controller: _scroll,
+                child: Center(
+                  child: SizedBox(
+                    width: width,
+                    height: layout.height,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        ..._paperGlow(m.stemX),
+                        Positioned.fill(
+                          child: CustomPaint(painter: StemPainter(layout)),
+                        ),
+                        for (final marker in layout.markers)
+                          Positioned(
+                            left: m.stemX + 10,
+                            top: marker.y,
+                            height: markerHeight,
+                            child: _MonthMarker(marker.month),
                           ),
-                      },
+                        for (final p in layout.placed)
+                          Sprout(
+                            key: ValueKey(p.entry.id),
+                            placed: p,
+                            scroll: _scroll,
+                            builder: (context, tape) => switch (p.entry) {
+                              final MomentEntry e => MomentCard(
+                                entry: e,
+                                onTap: () => _open(
+                                  MomentPage(
+                                    session: widget.session,
+                                    store: widget.store,
+                                    momentId: e.moment.id,
+                                  ),
+                                ),
+                              ),
+                              final PhotoStackEntry e => PolaroidStack(
+                                entry: e,
+                                tape: tape,
+                                onTap: () => _open(
+                                  PhotoViewer(
+                                    session: widget.session,
+                                    store: widget.store,
+                                    photoIds: [for (final p in e.photos) p.id],
+                                  ),
+                                ),
+                              ),
+                            },
+                          ),
+                        if (celebrating)
+                          Positioned(
+                            left: m.stemX - 120,
+                            top: fy - 120,
+                            width: 240,
+                            height: 240,
+                            child: IgnorePointer(
+                              child: AnimatedBuilder(
+                                animation: _celebrate,
+                                builder: (context, _) => Opacity(
+                                  opacity: AnniversaryDay.haloOpacity(
+                                    _celebrate.value,
+                                  ),
+                                  child: const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: RadialGradient(
+                                        radius: .5,
+                                        colors: [Pollen.c1, Color(0x00F3DFA8)],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          left: m.stemX - half,
+                          top: fy - half,
+                          child: GestureDetector(
+                            // On an anniversary, tapping the flower plays it again.
+                            onTap: celebrating
+                                ? () => _celebrate.forward(from: 0)
+                                : null,
+                            child: SakuraFlower(
+                              bloom: _bloom,
+                              size: TimelineMetrics.flowerSize,
+                            ),
+                          ),
+                        ),
+                        if (celebrating)
+                          Positioned(
+                            left: m.stemX - 34,
+                            top: fy - 34,
+                            width: 68,
+                            height: 68,
+                            child: IgnorePointer(
+                              child: CustomPaint(
+                                painter: HeartPainter(_celebrate),
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          left: m.stemX - 24,
+                          top: fy - 24,
+                          child: FadeTransition(
+                            opacity: _plusIn,
+                            child: _PlusButton(
+                              size: 28,
+                              color: Sakura.c6,
+                              onPressed: _openAddMenu,
+                            ),
+                          ),
+                        ),
+                        if (upcoming != null)
+                          Positioned(
+                            left: m.stemX + 20,
+                            width: math.min(190, m.width - m.stemX - 34),
+                            top: TimelineMetrics.noteTop,
+                            child: _UpcomingNote(
+                              title: upcoming.anniversary.titleOn(
+                                today.add(Duration(days: upcoming.days)),
+                              ),
+                              days: upcoming.days,
+                              onTap: upcoming.days == 0
+                                  ? _saveToday
+                                  : _openAnniversaries,
+                            ),
+                          ),
+                        Positioned(
+                          left: 24,
+                          right: 24,
+                          top: math.max(52, safe.top + 12),
+                          child: _Header(
+                            today: today,
+                            days: journal.daysTogether(today),
+                            me: me,
+                            onPickStartDate: _pickStartDate,
+                            onCalendar: _openAnniversaries,
+                            onProfile: _openProfileMenu,
+                          ),
+                        ),
+                      ],
                     ),
-                  Positioned(
-                    left: m.stemX - half,
-                    top: fy - half,
-                    child: SakuraFlower(bloom: _bloom, size: TimelineMetrics.flowerSize),
                   ),
-                  Positioned(
-                    left: m.stemX - 24,
-                    top: fy - 24,
-                    child: FadeTransition(
-                      opacity: _plusIn,
-                      child: _PlusButton(size: 28, color: Sakura.c6, onPressed: _openAddMenu),
-                    ),
-                  ),
-                  if (upcoming != null)
-                    Positioned(
-                      left: m.stemX + 20,
-                      width: math.min(190, m.width - m.stemX - 34),
-                      top: TimelineMetrics.noteTop,
-                      child: _UpcomingNote(
-                        title: upcoming.anniversary.titleOn(today.add(Duration(days: upcoming.days))),
-                        days: upcoming.days,
-                        onTap: _openAnniversaries,
-                      ),
-                    ),
-                  Positioned(
-                    left: 24,
-                    right: 24,
-                    top: math.max(52, safe.top + 12),
-                    child: _Header(
-                      today: today,
-                      days: journal.daysTogether(today),
-                      me: me,
-                      onPickStartDate: _pickStartDate,
-                      onCalendar: _openAnniversaries,
-                      onProfile: _openProfileMenu,
-                    ),
-                  ),
-                ],
+                ),
+              );
+            },
+          ),
+          // Confetti falls across the screen, not the scrolling page.
+          if (celebrating && !MediaQuery.disableAnimationsOf(context))
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(painter: ConfettiPainter(_celebrate)),
               ),
             ),
-          ),
-        );
-      }),
+        ],
+      ),
     );
   }
 }
@@ -302,12 +462,24 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('hôm nay, ${dotDate(today)}', style: AppText.script.copyWith(fontSize: 20)),
+              Text(
+                'hôm nay, ${dotDate(today)}',
+                style: AppText.script.copyWith(fontSize: 20),
+              ),
               if (days == null)
                 TextButton(
                   onPressed: onPickStartDate,
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero, foregroundColor: Paper.c8),
-                  child: Text('đặt ngày bắt đầu yêu', style: AppText.h1.copyWith(fontSize: 22, decoration: TextDecoration.underline)),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    foregroundColor: Paper.c8,
+                  ),
+                  child: Text(
+                    'đặt ngày bắt đầu yêu',
+                    style: AppText.h1.copyWith(
+                      fontSize: 22,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
                 )
               else
                 Row(
@@ -318,10 +490,18 @@ class _Header extends StatelessWidget {
                       tween: IntTween(begin: still ? days : 0, end: days),
                       duration: const Duration(milliseconds: 1200),
                       curve: Motion.easePaper,
-                      builder: (context, value, _) => Text(thousands(value), style: AppText.display.copyWith(height: 1)),
+                      builder: (context, value, _) => Text(
+                        thousands(value),
+                        style: AppText.display.copyWith(height: 1),
+                      ),
                     ),
                     const SizedBox(width: 6),
-                    Flexible(child: Text('NGÀY BÊN NHAU', style: AppText.label.copyWith(letterSpacing: 11 * .14))),
+                    Flexible(
+                      child: Text(
+                        'NGÀY BÊN NHAU',
+                        style: AppText.label.copyWith(letterSpacing: 11 * .14),
+                      ),
+                    ),
                   ],
                 ),
             ],
@@ -343,8 +523,15 @@ class _Header extends StatelessWidget {
           builder: (button) => IconButton(
             tooltip: 'Trang cá nhân',
             onPressed: () => onProfile(button),
-            style: IconButton.styleFrom(fixedSize: const Size.square(48), padding: EdgeInsets.zero),
-            icon: PersonAvatar(person: me, size: 44, ring: const BorderSide(color: Sakura.c2, width: 3)),
+            style: IconButton.styleFrom(
+              fixedSize: const Size.square(48),
+              padding: EdgeInsets.zero,
+            ),
+            icon: PersonAvatar(
+              person: me,
+              size: 44,
+              ring: const BorderSide(color: Sakura.c2, width: 3),
+            ),
           ),
         ),
       ],
@@ -355,7 +542,11 @@ class _Header extends StatelessWidget {
 /// The "+" — flower center (28px) at the top, floating (56px) further down.
 /// The tap area is at least 48px either way.
 class _PlusButton extends StatelessWidget {
-  const _PlusButton({required this.size, required this.color, required this.onPressed});
+  const _PlusButton({
+    required this.size,
+    required this.color,
+    required this.onPressed,
+  });
 
   final double size;
   final Color color;
@@ -367,7 +558,10 @@ class _PlusButton extends StatelessWidget {
       builder: (button) => IconButton(
         tooltip: 'Thêm mới',
         onPressed: () => onPressed(button),
-        style: IconButton.styleFrom(fixedSize: Size.square(math.max(48, size)), padding: EdgeInsets.zero),
+        style: IconButton.styleFrom(
+          fixedSize: Size.square(math.max(48, size)),
+          padding: EdgeInsets.zero,
+        ),
         icon: Container(
           width: size,
           height: size,
@@ -377,7 +571,11 @@ class _PlusButton extends StatelessWidget {
             border: Border.all(color: Sakura.c7, width: 1.5),
             boxShadow: Shadows.pink,
           ),
-          child: Icon(Icons.add, size: size * .57, color: const Color(0xFFFFF5F8)),
+          child: Icon(
+            Icons.add,
+            size: size * .57,
+            color: const Color(0xFFFFF5F8),
+          ),
         ),
       ),
     );
@@ -397,14 +595,24 @@ class _AddChoice extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: Sakura.c7),
         const SizedBox(width: Space.s3),
-        Text(title, style: AppText.body.copyWith(fontSize: 14, fontWeight: FontWeight.w500)),
+        Text(
+          title,
+          style: AppText.body.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
 }
 
 class _UpcomingNote extends StatelessWidget {
-  const _UpcomingNote({required this.title, required this.days, required this.onTap});
+  const _UpcomingNote({
+    required this.title,
+    required this.days,
+    required this.onTap,
+  });
 
   final String title;
   final int days;
@@ -423,13 +631,23 @@ class _UpcomingNote extends StatelessWidget {
             // Wide enough for "ngày kỷ niệm 10 năm" on one line.
             constraints: const BoxConstraints(minWidth: 140, maxWidth: 190),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: Paper.c1, borderRadius: BorderRadius.circular(Radii.tape), boxShadow: Shadows.paperSm),
+            decoration: BoxDecoration(
+              color: Paper.c1,
+              borderRadius: BorderRadius.circular(Radii.tape),
+              boxShadow: Shadows.paperSm,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(isToday ? 'HÔM NAY LÀ' : 'SẮP TỚI', style: AppText.label.copyWith(fontSize: 10, letterSpacing: 1)),
+                Text(
+                  isToday ? 'HÔM NAY LÀ' : 'SẮP TỚI',
+                  style: AppText.label.copyWith(fontSize: 10, letterSpacing: 1),
+                ),
                 Text(title, style: AppText.title.copyWith(fontSize: 13)),
-                if (!isToday) Text('còn $days ngày', style: AppText.script.copyWith(fontSize: 15)),
+                Text(
+                  isToday ? 'Lưu lại hôm nay →' : 'còn $days ngày',
+                  style: AppText.script.copyWith(fontSize: 15),
+                ),
               ],
             ),
           ),
@@ -450,8 +668,15 @@ class _MonthMarker extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: Paper.c1, borderRadius: BorderRadius.circular(Radii.tape), boxShadow: Shadows.paperSm),
-      child: Text(monthLabel(month), style: AppText.script.copyWith(fontSize: 14, height: 1)),
+      decoration: BoxDecoration(
+        color: Paper.c1,
+        borderRadius: BorderRadius.circular(Radii.tape),
+        boxShadow: Shadows.paperSm,
+      ),
+      child: Text(
+        monthLabel(month),
+        style: AppText.script.copyWith(fontSize: 14, height: 1),
+      ),
     );
   }
 }
@@ -460,20 +685,27 @@ class _MonthMarker extends StatelessWidget {
 /// circle that fades out inside itself, so it never shows an edge — not even
 /// where it spills past the content column on a wide screen.
 List<Widget> _paperGlow(double stemX) => [
-      _glow(Offset(stemX - 33, 84), 323, const Color(0x66FFFFFF)),
-      _glow(Offset(stemX + 6, TimelineMetrics.flowerY), 205, const Color(0x38F39BB5)),
-    ];
+  _glow(Offset(stemX - 33, 84), 323, const Color(0x66FFFFFF)),
+  _glow(
+    Offset(stemX + 6, TimelineMetrics.flowerY),
+    205,
+    const Color(0x38F39BB5),
+  ),
+];
 
 Widget _glow(Offset center, double radius, Color color) => Positioned(
-      left: center.dx - radius,
-      top: center.dy - radius,
-      width: radius * 2,
-      height: radius * 2,
-      child: IgnorePointer(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(radius: .5, colors: [color, color.withValues(alpha: 0)]),
-          ),
+  left: center.dx - radius,
+  top: center.dy - radius,
+  width: radius * 2,
+  height: radius * 2,
+  child: IgnorePointer(
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          radius: .5,
+          colors: [color, color.withValues(alpha: 0)],
         ),
       ),
-    );
+    ),
+  ),
+);
