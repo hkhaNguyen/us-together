@@ -5,10 +5,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/tokens.dart';
 import 'models.dart';
 
-/// Firestore layout. `addedBy` / `author` hold the member's email.
+/// The journal plus which person is signed in on this device.
+typedef Session = ({Journal journal, String me});
+
+/// Firestore layout. `addedBy` / `author` hold a person id, not an email, so
+/// either of someone's emails shows up as the same person.
 ///
-///   members/{email}      name, color ('sakura' | 'sage') — added by hand in
-///                        the console; also the access list for the rules
+///   people/{personId}    name, color ('sakura' | 'sage')     ┐ added by hand
+///   members/{email}      person (a personId) — the access    ┘ in the console
+///                        list for the rules; several emails per person
 ///   moments/{id}         date, title, body, photoIds, coverPhotoId, addedBy,
 ///                        anniversaryId, createdAt
 ///   photos/{id}          takenAt, addedBy, title, momentId, thumbUrl, createdAt
@@ -19,21 +24,25 @@ class JournalStore {
 
   final FirebaseFirestore _db;
 
-  static const _collections = ['members', 'moments', 'photos', 'entries', 'anniversaries'];
+  static const _collections = ['members', 'people', 'moments', 'photos', 'entries', 'anniversaries'];
 
   /// The whole journal, re-emitted whenever either of them changes anything.
-  /// Errors with `permission-denied` when the signed-in account isn't a member.
-  Stream<Journal> watch() {
+  /// Errors with `permission-denied` when [email] isn't listed under members/.
+  Stream<Session> watch(String email) {
     final latest = List<QuerySnapshot<Map<String, dynamic>>?>.filled(_collections.length, null);
     final subs = <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
-    late final StreamController<Journal> controller;
+    late final StreamController<Session> controller;
     controller = StreamController(
       onListen: () {
         for (final (i, name) in _collections.indexed) {
           subs.add(_db.collection(name).snapshots().listen(
             (snapshot) {
               latest[i] = snapshot;
-              if (latest.every((s) => s != null)) controller.add(_journal([for (final s in latest) s!.docs]));
+              if (latest.every((s) => s != null)) {
+                final [members, ...rest] = [for (final s in latest) s!.docs];
+                final me = members.where((d) => d.id == email).firstOrNull?.data()['person'] as String?;
+                controller.add((journal: _journal(rest), me: me ?? email));
+              }
             },
             onError: controller.addError,
           ));
@@ -52,12 +61,12 @@ class JournalStore {
       });
 
   static Journal _journal(List<List<QueryDocumentSnapshot<Map<String, dynamic>>>> docs) {
-    final [members, moments, photos, entries, anniversaries] = docs;
+    final [people, moments, photos, entries, anniversaries] = docs;
     DateTime date(Object? v) => (v as Timestamp).toDate();
 
     return Journal(
       people: [
-        for (final d in members)
+        for (final d in people)
           Person(id: d.id, name: d['name'] as String, color: d.data()['color'] == 'sage' ? Sage.c2 : Sakura.c5),
       ],
       moments: [

@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../data/journal_store.dart';
-import '../data/models.dart';
 import '../home/home_page.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
@@ -40,12 +39,12 @@ class _JournalGate extends StatefulWidget {
 
 class _JournalGateState extends State<_JournalGate> {
   final _store = JournalStore(FirebaseFirestore.instance);
-  late final Stream<Journal> _journal = _store.watch();
+  late final Stream<Session> _session = _store.watch(widget.email);
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: _journal,
+      stream: _session,
       builder: (context, snapshot) {
         final error = snapshot.error;
         // The rules only let accounts listed under members/ read anything.
@@ -56,11 +55,11 @@ class _JournalGateState extends State<_JournalGate> {
           );
         }
         if (error != null) return _Message(text: 'Không tải được sổ: $error', action: 'Đăng xuất');
-        final journal = snapshot.data;
-        if (journal == null) return const _Splash();
+        final session = snapshot.data;
+        if (session == null) return const _Splash();
         return HomePage(
-          journal: journal,
-          meId: widget.email,
+          journal: session.journal,
+          meId: session.me,
           onSetStartDate: _store.setStartDate,
           onSignOut: FirebaseAuth.instance.signOut,
         );

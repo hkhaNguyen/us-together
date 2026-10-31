@@ -2,8 +2,8 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // members/{email} documents are added by hand in the Firebase console;
-    // they are the whole access list.
+    // members/{email} documents (each pointing at a people/{id}) are added by
+    // hand in the Firebase console; they are the whole access list.
     function isMember() {
       return request.auth != null
         && request.auth.token.email_verified == true
@@ -11,6 +11,11 @@ service cloud.firestore {
     }
 
     match /members/{email} {
+      allow read: if isMember();
+      allow write: if false;
+    }
+
+    match /people/{personId} {
       allow read: if isMember();
       allow write: if false;
     }
