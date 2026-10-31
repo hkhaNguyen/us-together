@@ -126,7 +126,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  const Positioned(top: 0, left: 0, right: 0, height: 520, child: IgnorePointer(child: _PaperGlow())),
+                  ..._paperGlow(m.stemX),
                   Positioned.fill(child: CustomPaint(painter: StemPainter(layout))),
                   for (final marker in layout.markers)
                     Positioned(left: m.stemX + 10, top: marker.y, height: markerHeight, child: _MonthMarker(marker.month)),
@@ -149,7 +149,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     Positioned(
                       left: m.stemX + 76,
                       top: 136,
-                      child: _UpcomingNote(title: upcoming.anniversary.title, days: upcoming.days),
+                      child: _UpcomingNote(
+                        title: upcoming.anniversary.titleOn(today.add(Duration(days: upcoming.days))),
+                        days: upcoming.days,
+                      ),
                     ),
                   Positioned(
                     left: 24,
@@ -283,26 +286,24 @@ class _MonthMarker extends StatelessWidget {
   }
 }
 
-/// Soft light and a pink haze behind the flower, as in the design.
-class _PaperGlow extends StatelessWidget {
-  const _PaperGlow();
+/// Soft light and a pink haze behind the flower, as in the design. Each is a
+/// circle that fades out inside itself, so it never shows an edge — not even
+/// where it spills past the content column on a wide screen.
+List<Widget> _paperGlow(double stemX) => [
+      _glow(Offset(stemX - 33, 84), 323, const Color(0x66FFFFFF)),
+      _glow(Offset(stemX + 6, TimelineMetrics.flowerY), 205, const Color(0x38F39BB5)),
+    ];
 
-  @override
-  Widget build(BuildContext context) {
-    return const Stack(
-      fit: StackFit.expand,
-      children: [
-        DecoratedBox(
+Widget _glow(Offset center, double radius, Color color) => Positioned(
+      left: center.dx - radius,
+      top: center.dy - radius,
+      width: radius * 2,
+      height: radius * 2,
+      child: IgnorePointer(
+        child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: RadialGradient(center: Alignment(-.4, -.8), radius: .8, colors: [Color(0x66FFFFFF), Color(0x00FFFFFF)]),
+            gradient: RadialGradient(radius: .5, colors: [color, color.withValues(alpha: 0)]),
           ),
         ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(center: Alignment(-.2, -.25), radius: .6, colors: [Color(0x38F39BB5), Color(0x00F39BB5)]),
-          ),
-        ),
-      ],
+      ),
     );
-  }
-}

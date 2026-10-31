@@ -47,7 +47,7 @@ class MomentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final e = entry;
-    final dateLine = [dotDate(e.date), if (e.anniversary != null) e.anniversary!.title].join(' · ');
+    final dateLine = [dotDate(e.date), if (e.anniversary != null) e.anniversary!.titleOn(e.date)].join(' · ');
 
     return Semantics(
       button: onTap != null,

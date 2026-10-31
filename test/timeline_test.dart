@@ -18,6 +18,14 @@ void main() {
       expect(thousands(journal.daysTogether(DateTime(2026, 10, 31))!), '1.462');
     });
 
+    test('the start day is "ngày bắt đầu yêu" once, "ngày kỷ niệm N năm" after', () {
+      final start = journal.anniversaries.firstWhere((a) => a.isStart);
+      expect(start.titleOn(DateTime(2022, 10, 30)), 'ngày bắt đầu yêu');
+      expect(start.titleOn(DateTime(2027, 10, 30)), 'ngày kỷ niệm 5 năm');
+      final birthday = journal.anniversaries.firstWhere((a) => !a.isStart);
+      expect(birthday.titleOn(DateTime(2026, 11, 23)), birthday.title);
+    });
+
     test('no count before the start date is set; unknown authors don\'t crash', () {
       final empty = Journal(people: const [], moments: const [], photos: const [], entries: const [], anniversaries: const []);
       expect(empty.daysTogether(DateTime(2026, 10, 31)), isNull);

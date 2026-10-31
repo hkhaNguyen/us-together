@@ -61,7 +61,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                 children: [
                   SakuraFlower(bloom: _bloom, size: 130),
                   const SizedBox(height: Space.s3),
-                  Text('sổ ảnh của hai đứa', style: AppText.script.copyWith(fontSize: 22)),
+                  Text('Kỷ niệm của chúng ta', style: AppText.script.copyWith(fontSize: 22)),
                   Text('us-together', style: AppText.display),
                   const SizedBox(height: Space.s7),
                   SizedBox(

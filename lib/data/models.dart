@@ -78,6 +78,13 @@ class Anniversary {
 
   /// "ngày bắt đầu yêu" — the source of the days-together count.
   final bool isStart;
+
+  /// What to call the occurrence on [on]: the start day happened once; each
+  /// return after it is "ngày kỷ niệm N năm".
+  String titleOn(DateTime on) {
+    final years = on.year - date.year;
+    return isStart && years > 0 ? 'ngày kỷ niệm $years năm' : title;
+  }
 }
 
 /// Snapshot of everything the two of them share.
